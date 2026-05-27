@@ -4,8 +4,8 @@
         Title="VisualIoT - Crear dashboard"
         Height="620"
         Width="900"
-        MinHeight="560"
-        MinWidth="760"
+        MinHeight="520"
+        MinWidth="720"
         WindowStartupLocation="CenterOwner"
         Background="#0B1018"
         FontFamily="Segoe UI"
@@ -83,7 +83,7 @@
 
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="680" />
+            <ColumnDefinition Width="680" MaxWidth="680" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
@@ -151,7 +151,14 @@
                         </StackPanel>
                     </Grid>
 
-                    <TextBlock Text="Plantilla inicial" Foreground="{StaticResource MutedTextBrush}" FontWeight="SemiBold" Margin="0,18,0,7" />
+                    <TextBlock Text="Motor objetivo" Foreground="{StaticResource MutedTextBrush}" FontWeight="SemiBold" Margin="0,18,0,7" />
+                    <ComboBox x:Name="MotorComboBox"
+                              DisplayMemberPath="DisplayName"
+                              SelectedValuePath="Id"
+                              FontSize="15"
+                              Margin="0,0,0,18" />
+
+                    <TextBlock Text="Plantilla inicial" Foreground="{StaticResource MutedTextBrush}" FontWeight="SemiBold" Margin="0,0,0,7" />
                     <ComboBox x:Name="DashboardTemplateComboBox" SelectedIndex="0" FontSize="15" Margin="0,0,0,22">
                         <ComboBoxItem Content="Linea de produccion con widgets base" />
                         <ComboBoxItem Content="Canvas limpio" />
@@ -166,27 +173,6 @@
                             <ColumnDefinition Width="14" />
                             <ColumnDefinition />
                         </Grid.ColumnDefinitions>
-
-                        <Border Background="#0F1B2A" BorderBrush="#1D4E89" BorderThickness="1" CornerRadius="6" Padding="15">
-                            <StackPanel>
-                                <TextBlock Text="Telemetria MQTT" Foreground="#8DEBD0" FontWeight="SemiBold" FontSize="15" />
-                                <TextBlock Text="Topic visualiot/# preparado para ESP32." Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
-                            </StackPanel>
-                        </Border>
-
-                        <Border Grid.Column="2" Background="#121A27" BorderBrush="#42536D" BorderThickness="1" CornerRadius="6" Padding="15">
-                            <StackPanel>
-                                <TextBlock Text="Dashboard libre" Foreground="#D8E2EC" FontWeight="SemiBold" FontSize="15" />
-                                <TextBlock Text="Widgets editables con drag and drop." Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
-                            </StackPanel>
-                        </Border>
-
-                        <Border Grid.Column="4" Background="#1B1A12" BorderBrush="#B8872A" BorderThickness="1" CornerRadius="6" Padding="15">
-                            <StackPanel>
-                                <TextBlock Text="Vista industrial" Foreground="#F6D06A" FontWeight="SemiBold" FontSize="15" />
-                                <TextBlock Text="Indicadores pensados para motores y procesos." Foreground="#D6CDB2" TextWrapping="Wrap" Margin="0,6,0,0" />
-                            </StackPanel>
-                        </Border>
                     </Grid>
 
                     <Button x:Name="CreateDashboardButton"

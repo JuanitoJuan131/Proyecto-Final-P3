@@ -32,6 +32,7 @@ namespace GUI
         private bool _simulationRunning = true;
         private int _mqttMessageCount;
         private DashboardStartupOptions _startupOptions;
+        private string _selectedMotorId;
 
         public MainWindow()
             : this(new DashboardStartupOptions())
@@ -42,6 +43,7 @@ namespace GUI
         {
             _startupOptions = startupOptions ?? new DashboardStartupOptions();
             InitializeComponent();
+            ResponsiveWindowHelper.Ajustar(this, 1360, 820);
             WidgetPaletteItems = new ObservableCollection<WidgetPaletteItem>();
             Motors = new ObservableCollection<MotorCardViewModel>();
             Tags = new ObservableCollection<TagRowViewModel>();
@@ -50,6 +52,7 @@ namespace GUI
             LoadPalette();
             LoadMotors();
             DataContext = this;
+            SetSelectedMotor(string.IsNullOrWhiteSpace(_startupOptions.MotorId) ? "MOTOR_01" : _startupOptions.MotorId);
             CreateDashboardFromOptions(_startupOptions);
         }
 
@@ -171,7 +174,7 @@ namespace GUI
 
         private void NewDashboardButton_Click(object sender, RoutedEventArgs e)
         {
-            var setupWindow = new DashboardCreationWindow
+            var setupWindow = new DashboardCreationWindow(GetMotorDashboardOptions(), _selectedMotorId)
             {
                 Owner = this,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner
@@ -213,14 +216,25 @@ namespace GUI
             }
 
             var typeName = e.Data.GetData(DataFormats.StringFormat) as string;
-            WidgetType widgetType;
-            if (!Enum.TryParse(typeName, out widgetType))
+            TipoWidget tipoWidget;
+            if (!Enum.TryParse(typeName, out tipoWidget))
             {
                 return;
             }
 
             var position = e.GetPosition(DashboardCanvas);
-            AddWidget(widgetType, Snap(position.X), Snap(position.Y));
+            AddWidget(tipoWidget, Snap(position.X), Snap(position.Y));
+        }
+
+        private void MotorCard_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            var border = sender as Border;
+            var motorId = border != null ? border.Tag as string : null;
+            if (!string.IsNullOrWhiteSpace(motorId))
+            {
+                SetSelectedMotor(motorId);
+                AddEvent("Motor seleccionado para edicion: " + motorId);
+            }
         }
 
         private void DashboardCanvas_MouseMove(object sender, MouseEventArgs e)
@@ -326,13 +340,13 @@ namespace GUI
 
         private void LoadPalette()
         {
-            WidgetPaletteItems.Add(new WidgetPaletteItem(WidgetType.Gauge, "Gauge", "RPM, presion o vibracion"));
-            WidgetPaletteItems.Add(new WidgetPaletteItem(WidgetType.Numeric, "Numerico", "Valor puntual de cualquier tag"));
-            WidgetPaletteItems.Add(new WidgetPaletteItem(WidgetType.Tank, "Tanque", "Nivel de pulpa o jugo"));
-            WidgetPaletteItems.Add(new WidgetPaletteItem(WidgetType.Trend, "Tendencia", "Lecturas recientes"));
-            WidgetPaletteItems.Add(new WidgetPaletteItem(WidgetType.Led, "Led", "Estado discreto o alarma"));
-            WidgetPaletteItems.Add(new WidgetPaletteItem(WidgetType.Motor, "Motor", "Resumen de un equipo"));
-            WidgetPaletteItems.Add(new WidgetPaletteItem(WidgetType.AlarmPanel, "Alarmas", "Mensajes activos"));
+            WidgetPaletteItems.Add(new WidgetPaletteItem(TipoWidget.Medidor, "Gauge", "RPM, presion o vibracion"));
+            WidgetPaletteItems.Add(new WidgetPaletteItem(TipoWidget.Numerico, "Numerico", "Valor puntual de cualquier tag"));
+            WidgetPaletteItems.Add(new WidgetPaletteItem(TipoWidget.Tanque, "Tanque", "Nivel de pulpa o jugo"));
+            WidgetPaletteItems.Add(new WidgetPaletteItem(TipoWidget.Tendencia, "Tendencia", "Lecturas recientes"));
+            WidgetPaletteItems.Add(new WidgetPaletteItem(TipoWidget.Led, "Led", "Estado discreto o alarma"));
+            WidgetPaletteItems.Add(new WidgetPaletteItem(TipoWidget.Motor, "Motor", "Resumen de un equipo"));
+            WidgetPaletteItems.Add(new WidgetPaletteItem(TipoWidget.PanelAlarmas, "Alarmas", "Mensajes activos"));
         }
 
         private void CreateDashboardFromOptions(DashboardStartupOptions options)
@@ -345,9 +359,13 @@ namespace GUI
             var dashboardName = string.IsNullOrWhiteSpace(options.DashboardName)
                 ? "Dashboard principal"
                 : options.DashboardName.Trim();
+            var motorId = string.IsNullOrWhiteSpace(options.MotorId)
+                ? (_selectedMotorId ?? "MOTOR_01")
+                : options.MotorId.Trim();
 
+            SetSelectedMotor(motorId);
             ProjectNameHeaderTextBlock.Text = projectName;
-            DashboardNameHeaderTextBlock.Text = dashboardName;
+            DashboardNameHeaderTextBlock.Text = dashboardName + " - " + motorId;
 
             DashboardCanvas.Children.Clear();
             _widgets.Clear();
@@ -356,18 +374,18 @@ namespace GUI
             var template = options.TemplateIndex;
             if (template == 0)
             {
-                AddDefaultWidgets();
+                AddDefaultWidgets(motorId);
             }
             else if (template == 2)
             {
-                AddWidget(WidgetType.Gauge, 0, 0, "MOTOR_01.RPM", "Velocidad");
-                AddWidget(WidgetType.Numeric, 264, 0, "MOTOR_01.Temperatura", "Temperatura");
-                AddWidget(WidgetType.Numeric, 528, 0, "MOTOR_01.Corriente", "Corriente");
-                AddWidget(WidgetType.Trend, 0, 264, "MOTOR_01.RPM", "Historico en tiempo real");
-                AddWidget(WidgetType.AlarmPanel, 352, 264, "MOTOR_01.Alarma", "Registro de alertas");
+                AddWidget(TipoWidget.Medidor, 0, 0, motorId + ".RPM", "Velocidad");
+                AddWidget(TipoWidget.Numerico, 264, 0, motorId + ".Temperatura", "Temperatura");
+                AddWidget(TipoWidget.Numerico, 528, 0, motorId + ".Corriente", "Corriente");
+                AddWidget(TipoWidget.Tendencia, 0, 264, motorId + ".RPM", "Historico en tiempo real");
+                AddWidget(TipoWidget.PanelAlarmas, 352, 264, motorId + ".Alarma", "Registro de alertas");
             }
 
-            AddEvent("Dashboard creado: " + dashboardName);
+            AddEvent("Dashboard creado: " + dashboardName + " para " + motorId);
         }
 
         private void LoadMotors()
@@ -377,36 +395,64 @@ namespace GUI
                 var viewModel = new MotorCardViewModel
                 {
                     Id = motor.Id,
-                    Name = motor.Name,
-                    Line = motor.ProductionLine,
-                    StateText = "Off",
-                    Efficiency = motor.Efficiency
+                    Name = motor.Nombre,
+                    Line = motor.LineaProduccion,
+                    StateText = "Apagado",
+                    Efficiency = motor.Eficiencia
                 };
                 _motorMap[motor.Id] = viewModel;
                 Motors.Add(viewModel);
             }
         }
 
-        private void AddDefaultWidgets()
+        private IEnumerable<MotorDashboardOption> GetMotorDashboardOptions()
         {
-            AddWidget(WidgetType.Gauge, 0, 0, "MOTOR_01.RPM", "Extractor RPM");
-            AddWidget(WidgetType.Numeric, 264, 0, "MOTOR_01.Temperatura", "Temperatura ESP32");
-            AddWidget(WidgetType.Numeric, 528, 0, "MOTOR_01.Vibracion", "Vibracion ESP32");
-            AddWidget(WidgetType.Trend, 0, 264, "MOTOR_01.RPM", "Historico RPM");
-            AddWidget(WidgetType.AlarmPanel, 352, 264, "MOTOR_01.Alarma", "Alarmas");
+            return Motors.Select(m => new MotorDashboardOption { Id = m.Id, Name = m.Name }).ToList();
         }
 
-        private void AddWidget(WidgetType type, double left, double top)
+        private void SetSelectedMotor(string motorId)
+        {
+            if (string.IsNullOrWhiteSpace(motorId) && Motors.Count > 0)
+            {
+                motorId = Motors[0].Id;
+            }
+
+            _selectedMotorId = motorId;
+            foreach (var motor in Motors)
+            {
+                motor.IsSelected = string.Equals(motor.Id, _selectedMotorId, StringComparison.OrdinalIgnoreCase);
+            }
+
+            MotorCardViewModel selected;
+            if (_motorMap.TryGetValue(_selectedMotorId ?? string.Empty, out selected))
+            {
+                SelectedMotorHeaderTextBlock.Text = "Motor: " + selected.Id + " - " + selected.Name;
+                _startupOptions.MotorId = selected.Id;
+                _startupOptions.MotorName = selected.Name;
+            }
+        }
+
+        private void AddDefaultWidgets(string motorId)
+        {
+            motorId = string.IsNullOrWhiteSpace(motorId) ? "MOTOR_01" : motorId;
+            AddWidget(TipoWidget.Medidor, 0, 0, motorId + ".RPM", "Velocidad RPM");
+            AddWidget(TipoWidget.Numerico, 264, 0, motorId + ".Temperatura", "Temperatura");
+            AddWidget(TipoWidget.Numerico, 528, 0, motorId + ".Vibracion", "Vibracion");
+            AddWidget(TipoWidget.Tendencia, 0, 264, motorId + ".RPM", "Historico RPM");
+            AddWidget(TipoWidget.PanelAlarmas, 352, 264, motorId + ".Alarma", "Alarmas");
+        }
+
+        private void AddWidget(TipoWidget type, double left, double top)
         {
             AddWidget(type, left, top, ResolveDefaultTagFor(type), DefaultTitleFor(type));
         }
 
-        private void AddWidget(WidgetType type, double left, double top, string tag, string title)
+        private void AddWidget(TipoWidget type, double left, double top, string tag, string title)
         {
             EmptyDashboardText.Visibility = Visibility.Collapsed;
 
-            var width = type == WidgetType.Trend || type == WidgetType.AlarmPanel ? CellSize * 4 : CellSize * 3;
-            var height = type == WidgetType.Trend || type == WidgetType.AlarmPanel ? CellSize * 2 : CellSize * 2;
+            var width = type == TipoWidget.Tendencia || type == TipoWidget.PanelAlarmas ? CellSize * 4 : CellSize * 3;
+            var height = type == TipoWidget.Tendencia || type == TipoWidget.PanelAlarmas ? CellSize * 2 : CellSize * 2;
             var widget = CreateWidgetViewModel(type, tag, title);
             var border = new Border
             {
@@ -442,7 +488,7 @@ namespace GUI
             return menu;
         }
 
-        private DashboardWidgetViewModel CreateWidgetViewModel(WidgetType type, string tag, string title)
+        private DashboardWidgetViewModel CreateWidgetViewModel(TipoWidget type, string tag, string title)
         {
             var accent = AccentFor(tag, type);
             return new DashboardWidgetViewModel
@@ -461,16 +507,16 @@ namespace GUI
         {
             switch (widget.Type)
             {
-                case WidgetType.Gauge:
+                case TipoWidget.Medidor:
                     return BuildGaugeWidget(widget);
-                case WidgetType.Tank:
+                case TipoWidget.Tanque:
                     return BuildTankWidget(widget);
-                case WidgetType.Trend:
+                case TipoWidget.Tendencia:
                     return BuildTrendWidget(widget);
-                case WidgetType.Led:
-                case WidgetType.Motor:
+                case TipoWidget.Led:
+                case TipoWidget.Motor:
                     return BuildStateWidget(widget);
-                case WidgetType.AlarmPanel:
+                case TipoWidget.PanelAlarmas:
                     return BuildAlarmWidget(widget);
                 default:
                     return BuildMetricWidget(widget);
@@ -855,14 +901,14 @@ namespace GUI
 
         private void UpdateDashboardWidgets(string tag, object value)
         {
-            foreach (var widget in _widgets.Where(w => TagsMatch(w.Tag, tag) || w.Type == WidgetType.AlarmPanel))
+            foreach (var widget in _widgets.Where(w => TagsMatch(w.Tag, tag) || w.Type == TipoWidget.PanelAlarmas))
             {
-                if (widget.Type == WidgetType.AlarmPanel && !EndsWithTag(tag, ".Alarma"))
+                if (widget.Type == TipoWidget.PanelAlarmas && !EndsWithTag(tag, ".Alarma"))
                 {
                     continue;
                 }
 
-                var text = widget.Type == WidgetType.AlarmPanel
+                var text = widget.Type == TipoWidget.PanelAlarmas
                     ? (string.IsNullOrWhiteSpace(Convert.ToString(value)) ? "Sin alarmas" : Convert.ToString(value))
                     : FormatValue(value);
 
@@ -870,7 +916,7 @@ namespace GUI
                 if (widget.ValueBlock != null)
                 {
                     widget.ValueBlock.Text = text;
-                    widget.ValueBlock.Foreground = widget.Type == WidgetType.AlarmPanel && text != "Sin alarmas"
+                    widget.ValueBlock.Foreground = widget.Type == TipoWidget.PanelAlarmas && text != "Sin alarmas"
                         ? new SolidColorBrush(Color.FromRgb(255, 106, 106))
                         : new SolidColorBrush(Color.FromRgb(238, 244, 248));
                 }
@@ -1028,9 +1074,9 @@ namespace GUI
             return "kW";
         }
 
-        private static Color AccentFor(string tag, WidgetType type)
+        private static Color AccentFor(string tag, TipoWidget type)
         {
-            if (type == WidgetType.AlarmPanel) return Color.FromRgb(56, 189, 248);
+            if (type == TipoWidget.PanelAlarmas) return Color.FromRgb(56, 189, 248);
             if (EndsWithTag(tag, ".RPM")) return Color.FromRgb(163, 230, 53);
             if (EndsWithTag(tag, ".Temperatura")) return Color.FromRgb(249, 115, 22);
             if (EndsWithTag(tag, ".Corriente")) return Color.FromRgb(56, 189, 248);
@@ -1041,37 +1087,39 @@ namespace GUI
             return Color.FromRgb(251, 191, 36);
         }
 
-        private string ResolveDefaultTagFor(WidgetType type)
+        private string ResolveDefaultTagFor(TipoWidget type)
         {
             var preferredSuffixes = PreferredTagSuffixes(type);
             foreach (var suffix in preferredSuffixes)
             {
-                var liveTag = _simulationManager.Tags.Keys.FirstOrDefault(tag => EndsWithTag(tag, suffix));
+                var liveTag = _simulationManager.Tags.Keys.FirstOrDefault(tag =>
+                    tag.StartsWith((_selectedMotorId ?? "MOTOR_01") + ".", StringComparison.OrdinalIgnoreCase)
+                    && EndsWithTag(tag, suffix));
                 if (!string.IsNullOrWhiteSpace(liveTag))
                 {
                     return liveTag;
                 }
             }
 
-            return DefaultTagFor(type);
+            return DefaultTagFor(type, _selectedMotorId);
         }
 
-        private static string[] PreferredTagSuffixes(WidgetType type)
+        private static string[] PreferredTagSuffixes(TipoWidget type)
         {
             switch (type)
             {
-                case WidgetType.Tank:
+                case TipoWidget.Tanque:
                     return new[] { ".Nivel", ".Level" };
-                case WidgetType.Led:
+                case TipoWidget.Led:
                     return new[] { ".Estado", ".Alarma" };
-                case WidgetType.Trend:
+                case TipoWidget.Tendencia:
                     return new[] { ".RPM", ".Temperatura", ".Vibracion", ".Corriente" };
-                case WidgetType.AlarmPanel:
+                case TipoWidget.PanelAlarmas:
                     return new[] { ".Alarma" };
-                case WidgetType.Numeric:
+                case TipoWidget.Numerico:
                     return new[] { ".Temperatura", ".Vibracion", ".Corriente", ".Voltaje", ".RPM" };
-                case WidgetType.Motor:
-                case WidgetType.Gauge:
+                case TipoWidget.Motor:
+                case TipoWidget.Medidor:
                 default:
                     return new[] { ".RPM", ".Temperatura", ".Vibracion" };
             }
@@ -1088,40 +1136,41 @@ namespace GUI
                 && tag.EndsWith(suffix, StringComparison.OrdinalIgnoreCase);
         }
 
-        private static string DefaultTagFor(WidgetType type)
+        private static string DefaultTagFor(TipoWidget type, string motorId)
         {
+            motorId = string.IsNullOrWhiteSpace(motorId) ? "MOTOR_01" : motorId;
             switch (type)
             {
-                case WidgetType.Tank:
-                    return "MOTOR_03.Nivel";
-                case WidgetType.Led:
-                    return "MOTOR_04.Estado";
-                case WidgetType.Trend:
-                    return "MOTOR_02.Temperatura";
-                case WidgetType.AlarmPanel:
-                    return "MOTOR_01.Alarma";
-                case WidgetType.Motor:
-                    return "MOTOR_01.RPM";
+                case TipoWidget.Tanque:
+                    return motorId + ".Nivel";
+                case TipoWidget.Led:
+                    return motorId + ".Estado";
+                case TipoWidget.Tendencia:
+                    return motorId + ".Temperatura";
+                case TipoWidget.PanelAlarmas:
+                    return motorId + ".Alarma";
+                case TipoWidget.Motor:
+                    return motorId + ".RPM";
                 default:
-                    return "MOTOR_01.RPM";
+                    return motorId + ".RPM";
             }
         }
 
-        private static string DefaultTitleFor(WidgetType type)
+        private static string DefaultTitleFor(TipoWidget type)
         {
             switch (type)
             {
-                case WidgetType.Tank:
+                case TipoWidget.Tanque:
                     return "Nivel de tanque";
-                case WidgetType.Led:
+                case TipoWidget.Led:
                     return "Estado";
-                case WidgetType.Trend:
+                case TipoWidget.Tendencia:
                     return "Tendencia";
-                case WidgetType.AlarmPanel:
+                case TipoWidget.PanelAlarmas:
                     return "Alarmas";
-                case WidgetType.Motor:
+                case TipoWidget.Motor:
                     return "Motor";
-                case WidgetType.Numeric:
+                case TipoWidget.Numerico:
                     return "Valor numerico";
                 default:
                     return "Gauge";
@@ -1131,14 +1180,14 @@ namespace GUI
 
     public class WidgetPaletteItem
     {
-        public WidgetPaletteItem(WidgetType type, string name, string description)
+        public WidgetPaletteItem(TipoWidget type, string name, string description)
         {
             Type = type;
             Name = name;
             Description = description;
         }
 
-        public WidgetType Type { get; private set; }
+        public TipoWidget Type { get; private set; }
         public string Name { get; private set; }
         public string Description { get; private set; }
     }
@@ -1150,7 +1199,7 @@ namespace GUI
             History = new List<double>();
         }
 
-        public WidgetType Type { get; set; }
+        public TipoWidget Type { get; set; }
         public string Tag { get; set; }
         public string Title { get; set; }
         public string ValueText { get; set; }
@@ -1188,8 +1237,9 @@ namespace GUI
     {
         private string _rpmText = "0.0";
         private string _temperatureText = "25.0 C";
-        private string _stateText = "Off";
+        private string _stateText = "Apagado";
         private double _efficiency;
+        private bool _isSelected;
 
         public string Id { get; set; }
         public string Name { get; set; }
@@ -1236,21 +1286,48 @@ namespace GUI
             }
         }
 
+        public bool IsSelected
+        {
+            get { return _isSelected; }
+            set
+            {
+                _isSelected = value;
+                RaisePropertyChanged("IsSelected");
+                RaisePropertyChanged("SelectionBrush");
+                RaisePropertyChanged("SelectionThickness");
+            }
+        }
+
+        public Brush SelectionBrush
+        {
+            get
+            {
+                return IsSelected
+                    ? new SolidColorBrush(Color.FromRgb(40, 199, 164))
+                    : new SolidColorBrush(Color.FromRgb(52, 70, 94));
+            }
+        }
+
+        public Thickness SelectionThickness
+        {
+            get { return IsSelected ? new Thickness(2) : new Thickness(1); }
+        }
+
         public Brush StateBrush
         {
             get
             {
-                if (StateText == "Fault")
+                if (StateText == "Falla")
                 {
                     return new SolidColorBrush(Color.FromRgb(255, 106, 106));
                 }
 
-                if (StateText == "Warning")
+                if (StateText == "Advertencia")
                 {
                     return new SolidColorBrush(Color.FromRgb(255, 204, 102));
                 }
 
-                if (StateText == "Running")
+                if (StateText == "EnMarcha")
                 {
                     return new SolidColorBrush(Color.FromRgb(40, 199, 164));
                 }
@@ -1274,3 +1351,4 @@ namespace GUI
         }
     }
 }
+

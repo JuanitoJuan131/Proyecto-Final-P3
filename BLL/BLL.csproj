@@ -45,6 +45,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Mqtt\MqttTelemetryService.cs" />
+    <Compile Include="Security\AutenticacionService.cs" />
     <Compile Include="Simulation\AlarmManager.cs" />
     <Compile Include="Simulation\EngineSimulator.cs" />
     <Compile Include="Simulation\IndustrialRandom.cs" />

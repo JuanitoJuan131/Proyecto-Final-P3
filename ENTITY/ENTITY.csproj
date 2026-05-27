@@ -45,14 +45,14 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Class1.cs" />
-    <Compile Include="Models\AutomationRule.cs" />
-    <Compile Include="Models\DashboardModel.cs" />
-    <Compile Include="Models\DeviceModel.cs" />
-    <Compile Include="Models\MotorTelemetry.cs" />
-    <Compile Include="Models\ProjectModel.cs" />
-    <Compile Include="Models\TagData.cs" />
-    <Compile Include="Models\UserModel.cs" />
-    <Compile Include="Models\WidgetModel.cs" />
+    <Compile Include="Models\Regla.cs" />
+    <Compile Include="Models\Dashboard.cs" />
+    <Compile Include="Models\Dispositivo.cs" />
+    <Compile Include="Models\Motor.cs" />
+    <Compile Include="Models\Proyecto.cs" />
+    <Compile Include="Models\TagDato.cs" />
+    <Compile Include="Models\Usuario.cs" />
+    <Compile Include="Models\Widget.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

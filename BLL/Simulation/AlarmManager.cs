@@ -4,41 +4,53 @@ namespace BLL.Simulation
 {
     public class AlarmManager
     {
-        public void Evaluate(MotorTelemetry motor)
+        public void Evaluate(TelemetriaMotor motor)
         {
-            motor.AlarmActive = false;
-            motor.AlarmMessage = string.Empty;
+            motor.AlarmaActiva = false;
+            motor.MensajeAlarma = string.Empty;
 
-            if (motor.Temperature > 90)
+            if (motor.Temperatura >= 98)
             {
-                Activate(motor, "Sobrecalentamiento");
+                Activate(motor, "Falla critica: temperatura " + motor.Temperatura.ToString("0.0") + " C");
             }
-            else if (motor.Vibration > 5)
+            else if (motor.Vibracion >= 7.5)
             {
-                Activate(motor, "Vibracion excesiva");
+                Activate(motor, "Falla mecanica probable: vibracion " + motor.Vibracion.ToString("0.0") + " mm/s");
             }
-            else if (motor.Pressure > 115)
+            else if (motor.Corriente >= 42)
             {
-                Activate(motor, "Sobrepresion");
+                Activate(motor, "Sobrecarga electrica: corriente " + motor.Corriente.ToString("0.0") + " A");
             }
-            else if (motor.Voltage < 210)
+            else if (motor.Voltaje < 205 || motor.Voltaje > 235)
             {
-                Activate(motor, "Bajo voltaje");
+                Activate(motor, "Voltaje fuera de rango: " + motor.Voltaje.ToString("0.0") + " V");
             }
-            else if (motor.Efficiency < 88)
+            else if (motor.Presion > 118)
             {
-                Activate(motor, "Baja eficiencia");
+                Activate(motor, "Sobrepresion en linea: " + motor.Presion.ToString("0.0") + " psi");
+            }
+            else if (motor.Temperatura >= 88 && motor.Corriente >= 34)
+            {
+                Activate(motor, "Alerta termica por carga elevada");
+            }
+            else if (motor.Vibracion >= 5.6 && motor.Rpm > 1650)
+            {
+                Activate(motor, "Desbalance o desgaste en rodamientos");
+            }
+            else if (motor.Eficiencia < 78 && motor.Corriente > 30)
+            {
+                Activate(motor, "Baja eficiencia con consumo elevado");
             }
         }
 
-        private static void Activate(MotorTelemetry motor, string message)
+        private static void Activate(TelemetriaMotor motor, string message)
         {
-            motor.AlarmActive = true;
-            motor.AlarmMessage = message;
+            motor.AlarmaActiva = true;
+            motor.MensajeAlarma = message;
 
-            if (motor.State == MotorState.Running)
+            if (motor.Estado == EstadoMotor.EnMarcha)
             {
-                motor.State = MotorState.Warning;
+                motor.Estado = EstadoMotor.Advertencia;
             }
         }
     }

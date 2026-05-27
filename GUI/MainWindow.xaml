@@ -7,8 +7,8 @@
         Title="VisualIoT - Monitoreo Industrial"
         Height="820"
         Width="1360"
-        MinHeight="720"
-        MinWidth="1180"
+        MinHeight="620"
+        MinWidth="940"
         Loaded="Window_Loaded"
         Closing="Window_Closing"
         PreviewKeyDown="Window_PreviewKeyDown"
@@ -105,25 +105,33 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="VisualIoT" FontSize="24" FontWeight="SemiBold" />
+                    <TextBlock Text="VisualIoT" FontSize="24" FontWeight="SemiBold" FontFamily="Segoe UI Variable Display Semibold" >
+                        <TextBlock.Background>
+                            <LinearGradientBrush EndPoint="0.5,1" StartPoint="0.5,0">
+                                <GradientStop Color="Black"/>
+                                <GradientStop Color="#FF08225F" Offset="1"/>
+                            </LinearGradientBrush>
+                        </TextBlock.Background>
+                    </TextBlock>
                     <TextBlock x:Name="ProjectNameHeaderTextBlock" Text="Linea de jugos naturales" Foreground="{StaticResource MutedTextBrush}" />
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="Broker" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <TextBlock Text="Broker" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="Bold" />
                     <TextBox x:Name="BrokerTextBox" Text="broker.hivemq.com" Width="190" Margin="0,0,10,0" />
-                    <TextBlock Text="Puerto" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <TextBlock Text="Puerto" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="Bold" />
                     <TextBox x:Name="PortTextBox" Text="1883" Width="70" Margin="0,0,10,0" />
-                    <TextBlock Text="Topic" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <TextBlock Text="Topic" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="Bold" />
                     <TextBox x:Name="TopicTextBox" Text="visualiot/#" Width="145" Margin="0,0,10,0" />
-                    <Button x:Name="ConnectButton" Content="Conectar MQTT" Click="ConnectButton_Click" />
-                    <Button x:Name="SimulationButton" Content="Detener simulacion" Click="SimulationButton_Click" Margin="8,0,0,0" />
-                    <Button x:Name="NewDashboardButton" Content="Nuevo dashboard" Click="NewDashboardButton_Click" Margin="8,0,0,0" />
+                    <Button x:Name="ConnectButton" Content="Conectar" Click="ConnectButton_Click" Width="80" />
+                    <Button x:Name="SimulationButton" Content="Detener simulacion" Click="SimulationButton_Click" Margin="8,0,0,0" Width="138" />
+                    <Button x:Name="NewDashboardButton" Content="Nuevo " Click="NewDashboardButton_Click" Margin="8,0,0,0" />
                 </StackPanel>
 
                 <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
                     <TextBlock x:Name="DashboardNameHeaderTextBlock" Text="Dashboard principal" HorizontalAlignment="Right" FontSize="18" FontWeight="SemiBold" />
-                    <TextBlock x:Name="ConnectionStatusTextBlock" Text="MQTT desconectado" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Right" />
+                    <TextBlock x:Name="SelectedMotorHeaderTextBlock" Text="Motor: MOTOR_01" Foreground="#C8D3DF" HorizontalAlignment="Right" FontWeight="SemiBold" />
+                    <TextBlock x:Name="ConnectionStatusTextBlock" Text="MQTT desconectado" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Right" FontWeight="Bold" />
                 </StackPanel>
             </Grid>
         </Border>
@@ -177,7 +185,15 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Background="{StaticResource PanelAltBrush}" BorderBrush="#34465E" BorderThickness="1" CornerRadius="6" Margin="0,0,10,0" Padding="12">
+                                <Border Background="{StaticResource PanelAltBrush}"
+                                        BorderBrush="{Binding SelectionBrush}"
+                                        BorderThickness="{Binding SelectionThickness}"
+                                        CornerRadius="6"
+                                        Margin="0,0,10,0"
+                                        Padding="12"
+                                        Tag="{Binding Id}"
+                                        Cursor="Hand"
+                                        MouseLeftButtonDown="MotorCard_MouseLeftButtonDown">
                                     <Grid>
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto" />
@@ -220,7 +236,7 @@
                                 Drop="DashboardCanvas_Drop"
                                 DragOver="DashboardCanvas_DragOver"
                                 MouseMove="DashboardCanvas_MouseMove"
-                                MouseLeftButtonUp="DashboardCanvas_MouseLeftButtonUp">
+                                MouseLeftButtonUp="DashboardCanvas_MouseLeftButtonUp" Width="800">
                             <Canvas.Background>
                                 <DrawingBrush TileMode="Tile" Viewport="0,0,88,88" ViewportUnits="Absolute">
                                     <DrawingBrush.Drawing>
@@ -250,11 +266,12 @@
                 </Border>
             </Grid>
 
-            <Border Grid.Column="2" Background="{StaticResource PanelBrush}" BorderBrush="#243044" BorderThickness="1,0,0,0">
+            <Border Grid.Column="2" Background="{StaticResource PanelBrush}" BorderBrush="#243044" BorderThickness="1,0,0,0" Width="250">
                 <Grid Margin="14">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
+                        <RowDefinition />
+                        <RowDefinition Height="303"/>
                         <RowDefinition Height="190" />
                     </Grid.RowDefinitions>
 
@@ -275,14 +292,14 @@
                               RowBackground="#101722"
                               AlternatingRowBackground="#151D29"
                               BorderBrush="#2B3A51"
-                              CanUserResizeRows="False">
+                              CanUserResizeRows="False" Margin="10,0,10,0" Grid.RowSpan="2">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Tag" Binding="{Binding Tag}" Width="*" />
                             <DataGridTextColumn Header="Valor" Binding="{Binding Value}" Width="95" />
                         </DataGrid.Columns>
                     </DataGrid>
 
-                    <Border Grid.Row="2" Background="#101722" BorderBrush="#34465E" BorderThickness="1" CornerRadius="6" Margin="0,12,0,0" Padding="10">
+                    <Border Grid.Row="3" Background="#101722" BorderBrush="#34465E" BorderThickness="1" CornerRadius="6" Margin="0,12,0,0" Padding="10">
                         <DockPanel>
                             <TextBlock DockPanel.Dock="Top" Text="Eventos" FontWeight="SemiBold" Margin="0,0,0,8" />
                             <ListBox x:Name="EventsList"

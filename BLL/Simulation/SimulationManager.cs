@@ -85,10 +85,10 @@ namespace BLL.Simulation
 
         private void ConfigureMotors()
         {
-            Engine.AddMotor(new MotorTelemetry("MOTOR_01", "Lavadora de frutas", "Recepcion y lavado"));
-            Engine.AddMotor(new MotorTelemetry("MOTOR_02", "Extractor principal", "Extraccion"));
-            Engine.AddMotor(new MotorTelemetry("MOTOR_03", "Bomba de pulpa", "Filtrado"));
-            Engine.AddMotor(new MotorTelemetry("MOTOR_04", "Llenadora rotativa", "Envasado"));
+            Engine.AddMotor(new TelemetriaMotor("MOTOR_01", "Lavadora de frutas", "Recepcion y lavado"));
+            Engine.AddMotor(new TelemetriaMotor("MOTOR_02", "Extractor principal", "Extraccion"));
+            Engine.AddMotor(new TelemetriaMotor("MOTOR_03", "Bomba de pulpa", "Filtrado"));
+            Engine.AddMotor(new TelemetriaMotor("MOTOR_04", "Llenadora rotativa", "Envasado"));
         }
 
         private void OnSimulatorTagUpdated(string tag, object value)

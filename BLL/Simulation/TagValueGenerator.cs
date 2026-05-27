@@ -5,21 +5,21 @@ namespace BLL.Simulation
 {
     public class TagValueGenerator
     {
-        public Dictionary<string, object> Generate(MotorTelemetry motor)
+        public Dictionary<string, object> Generate(TelemetriaMotor motor)
         {
             return new Dictionary<string, object>
             {
                 { motor.Id + ".RPM", motor.Rpm },
-                { motor.Id + ".Temperatura", motor.Temperature },
-                { motor.Id + ".Presion", motor.Pressure },
-                { motor.Id + ".Vibracion", motor.Vibration },
-                { motor.Id + ".Voltaje", motor.Voltage },
-                { motor.Id + ".Corriente", motor.Current },
+                { motor.Id + ".Temperatura", motor.Temperatura },
+                { motor.Id + ".Presion", motor.Presion },
+                { motor.Id + ".Vibracion", motor.Vibracion },
+                { motor.Id + ".Voltaje", motor.Voltaje },
+                { motor.Id + ".Corriente", motor.Corriente },
                 { motor.Id + ".Torque", motor.Torque },
-                { motor.Id + ".Nivel", motor.Level },
-                { motor.Id + ".Eficiencia", motor.Efficiency },
-                { motor.Id + ".Estado", motor.State.ToString() },
-                { motor.Id + ".Alarma", motor.AlarmMessage }
+                { motor.Id + ".Nivel", motor.Nivel },
+                { motor.Id + ".Eficiencia", motor.Eficiencia },
+                { motor.Id + ".Estado", motor.Estado.ToString() },
+                { motor.Id + ".Alarma", motor.MensajeAlarma }
             };
         }
     }

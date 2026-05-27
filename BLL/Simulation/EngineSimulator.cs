@@ -8,7 +8,7 @@ namespace BLL.Simulation
 {
     public class EngineSimulator
     {
-        private readonly List<MotorTelemetry> _motors = new List<MotorTelemetry>();
+        private readonly List<TelemetriaMotor> _motors = new List<TelemetriaMotor>();
         private readonly SensorSimulator _sensorSimulator = new SensorSimulator();
         private readonly AlarmManager _alarmManager = new AlarmManager();
         private readonly TagValueGenerator _tagValueGenerator = new TagValueGenerator();
@@ -16,12 +16,12 @@ namespace BLL.Simulation
 
         public TelemetryDispatcher Dispatcher { get; } = new TelemetryDispatcher();
 
-        public IReadOnlyList<MotorTelemetry> Motors
+        public IReadOnlyList<TelemetriaMotor> Motors
         {
             get { return _motors.AsReadOnly(); }
         }
 
-        public void AddMotor(MotorTelemetry motor)
+        public void AddMotor(TelemetriaMotor motor)
         {
             _motors.Add(motor);
         }
@@ -59,67 +59,67 @@ namespace BLL.Simulation
             }
         }
 
-        private void SimulateMotor(MotorTelemetry motor)
+        private void SimulateMotor(TelemetriaMotor motor)
         {
-            switch (motor.State)
+            switch (motor.Estado)
             {
-                case MotorState.Off:
+                case EstadoMotor.Apagado:
                     if (IndustrialRandom.Chance(0.08))
                     {
-                        motor.State = MotorState.Starting;
+                        motor.Estado = EstadoMotor.Arrancando;
                     }
                     break;
 
-                case MotorState.Starting:
+                case EstadoMotor.Arrancando:
                     motor.Rpm += IndustrialRandom.Range(120, 260);
-                    motor.Current += IndustrialRandom.Range(6, 18);
-                    motor.Temperature += IndustrialRandom.Range(0.4, 1.4);
+                    motor.Corriente += IndustrialRandom.Range(6, 18);
+                    motor.Temperatura += IndustrialRandom.Range(0.4, 1.4);
                     if (motor.Rpm >= 1720)
                     {
                         motor.Rpm = 1720;
-                        motor.State = MotorState.Running;
+                        motor.Estado = EstadoMotor.EnMarcha;
                     }
                     break;
 
-                case MotorState.Running:
-                case MotorState.Warning:
+                case EstadoMotor.EnMarcha:
+                case EstadoMotor.Advertencia:
                     motor.Rpm = Clamp(motor.Rpm + IndustrialRandom.Range(-25, 25), 1620, 1820);
                     _sensorSimulator.Update(motor);
                     _alarmManager.Evaluate(motor);
 
-                    if (IndustrialRandom.Chance(0.002))
+                    if (IndustrialRandom.Chance(0.0015))
                     {
-                        motor.State = MotorState.Fault;
+                        motor.Estado = EstadoMotor.Falla;
                     }
-                    else if (!motor.AlarmActive)
+                    else if (!motor.AlarmaActiva)
                     {
-                        motor.State = MotorState.Running;
+                        motor.Estado = EstadoMotor.EnMarcha;
                     }
                     break;
 
-                case MotorState.Fault:
+                case EstadoMotor.Falla:
                     motor.Rpm = Clamp(motor.Rpm - IndustrialRandom.Range(120, 260), 0, 1800);
-                    motor.Vibration = IndustrialRandom.Range(8, 15);
-                    motor.Temperature = Clamp(motor.Temperature + IndustrialRandom.Range(0.8, 2.2), 25, 120);
-                    motor.AlarmActive = true;
-                    motor.AlarmMessage = "Falla critica de motor";
+                    motor.Vibracion = IndustrialRandom.Range(8, 15);
+                    motor.Temperatura = Clamp(motor.Temperatura + IndustrialRandom.Range(0.8, 2.2), 25, 120);
+                    motor.AlarmaActiva = true;
+                    motor.MensajeAlarma = "Falla critica de motor";
                     if (motor.Rpm <= 0)
                     {
-                        motor.State = MotorState.Off;
+                        motor.Estado = EstadoMotor.Apagado;
                     }
                     break;
 
-                case MotorState.Stopping:
+                case EstadoMotor.Deteniendo:
                     motor.Rpm = Clamp(motor.Rpm - IndustrialRandom.Range(80, 180), 0, 1800);
-                    motor.Current = Clamp(motor.Current - IndustrialRandom.Range(3, 8), 0, 40);
+                    motor.Corriente = Clamp(motor.Corriente - IndustrialRandom.Range(3, 8), 0, 40);
                     if (motor.Rpm <= 0)
                     {
-                        motor.State = MotorState.Off;
+                        motor.Estado = EstadoMotor.Apagado;
                     }
                     break;
             }
 
-            motor.LastUpdate = DateTime.Now;
+            motor.UltimaActualizacion = DateTime.Now;
         }
 
         private static double Clamp(double value, double min, double max)
