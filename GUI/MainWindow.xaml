@@ -30,11 +30,39 @@
             <Setter Property="MinHeight" Value="34" />
             <Setter Property="Padding" Value="14,7" />
             <Setter Property="Foreground" Value="#EEF4F8" />
-            <Setter Property="Background" Value="#243044" />
-            <Setter Property="BorderBrush" Value="#33455F" />
+            <Setter Property="Background" Value="#223148" />
+            <Setter Property="BorderBrush" Value="#3A4D67" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonChrome"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="5"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              Margin="{TemplateBinding Padding}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonChrome" Property="Background" Value="#2B3D57" />
+                                <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="#526984" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonChrome" Property="Background" Value="#172235" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ButtonChrome" Property="Opacity" Value="0.55" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
         <Style TargetType="TextBox">
             <Setter Property="MinHeight" Value="36" />
@@ -43,6 +71,13 @@
             <Setter Property="Background" Value="#101722" />
             <Setter Property="BorderBrush" Value="#2B3A51" />
             <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="Foreground" Value="#C8D3DF" />
+            <Setter Property="Background" Value="#162131" />
+            <Setter Property="BorderBrush" Value="#2B3A51" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="8,7" />
         </Style>
         <Style TargetType="ComboBox">
             <Setter Property="MinHeight" Value="36" />
@@ -115,7 +150,7 @@
                              Foreground="{StaticResource TextBrush}">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <Border Background="#1B2430" BorderBrush="#2B3A51" BorderThickness="1" Padding="12" Margin="0,0,0,8">
+                                <Border Background="#1B2430" BorderBrush="#34465E" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,8">
                                     <StackPanel>
                                         <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
                                         <TextBlock Text="{Binding Description}" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" Margin="0,3,0,0" />
@@ -142,7 +177,7 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Background="{StaticResource PanelAltBrush}" BorderBrush="#2B3A51" BorderThickness="1" Margin="0,0,10,0" Padding="12">
+                                <Border Background="{StaticResource PanelAltBrush}" BorderBrush="#34465E" BorderThickness="1" CornerRadius="6" Margin="0,0,10,0" Padding="12">
                                     <Grid>
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto" />
@@ -160,7 +195,7 @@
                                             </Grid.ColumnDefinitions>
                                             <StackPanel>
                                                 <TextBlock Text="{Binding RpmText}" FontSize="24" FontWeight="SemiBold" />
-                                                <TextBlock Text="RPM" Foreground="{StaticResource MutedTextBrush}" />
+                                                <TextBlock Text="RPM" Foreground="White" />
                                             </StackPanel>
                                             <StackPanel Grid.Column="1">
                                                 <TextBlock Text="{Binding TemperatureText}" FontSize="24" FontWeight="SemiBold" />
@@ -247,7 +282,7 @@
                         </DataGrid.Columns>
                     </DataGrid>
 
-                    <Border Grid.Row="2" Background="#101722" BorderBrush="#2B3A51" BorderThickness="1" Margin="0,12,0,0" Padding="10">
+                    <Border Grid.Row="2" Background="#101722" BorderBrush="#34465E" BorderThickness="1" CornerRadius="6" Margin="0,12,0,0" Padding="10">
                         <DockPanel>
                             <TextBlock DockPanel.Dock="Top" Text="Eventos" FontWeight="SemiBold" Margin="0,0,0,8" />
                             <ListBox x:Name="EventsList"
@@ -269,140 +304,5 @@
                        Margin="14,0" />
         </Border>
 
-        <Border x:Name="CreationOverlay"
-                Grid.RowSpan="3"
-                Panel.ZIndex="20"
-                Background="#0B1018">
-            <Grid>
-                <Grid.Background>
-                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                        <GradientStop Color="#0B1018" Offset="0" />
-                        <GradientStop Color="#101827" Offset="0.56" />
-                        <GradientStop Color="#0A1420" Offset="1" />
-                    </LinearGradientBrush>
-                </Grid.Background>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="720" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-
-                <Border Grid.Column="1"
-                        Grid.Row="1"
-                        Background="#121A27"
-                        BorderBrush="#315070"
-                        BorderThickness="1"
-                        Padding="0">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                        </Grid.RowDefinitions>
-
-                        <Border Background="#172235" BorderBrush="#315070" BorderThickness="0,0,0,1" Padding="28,24">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-
-                                <StackPanel>
-                                    <TextBlock Text="Crear espacio de trabajo" FontSize="30" FontWeight="SemiBold" />
-                                    <TextBlock Text="Configura el proyecto y el dashboard inicial para la linea de produccion."
-                                               Foreground="#B7C6D8"
-                                               FontSize="15"
-                                               TextWrapping="Wrap"
-                                               Margin="0,8,0,0" />
-                                </StackPanel>
-
-                                <Border Grid.Column="1"
-                                        Background="#0D9488"
-                                        Padding="14,8"
-                                        VerticalAlignment="Top">
-                                    <TextBlock Text="MQTT READY" FontWeight="Bold" FontSize="12" Foreground="White" />
-                                </Border>
-                            </Grid>
-                        </Border>
-
-                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                            <StackPanel Margin="28">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="18" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-
-                                    <StackPanel>
-                                        <TextBlock Text="Nombre del proyecto" Foreground="#B7C6D8" FontWeight="SemiBold" Margin="0,0,0,7" />
-                                        <TextBox x:Name="ProjectNameTextBox" Text="Linea de jugos naturales" FontSize="15" />
-                                    </StackPanel>
-
-                                    <StackPanel Grid.Column="2">
-                                        <TextBlock Text="Nombre del dashboard" Foreground="#B7C6D8" FontWeight="SemiBold" Margin="0,0,0,7" />
-                                        <TextBox x:Name="DashboardNameTextBox" Text="Monitoreo de motores" FontSize="15" />
-                                    </StackPanel>
-                                </Grid>
-
-                                <TextBlock Text="Plantilla inicial" Foreground="#B7C6D8" FontWeight="SemiBold" Margin="0,18,0,7" />
-                                <ComboBox x:Name="DashboardTemplateComboBox"
-                                          SelectedIndex="0"
-                                          FontSize="15"
-                                          Margin="0,0,0,22" Foreground="#FF010406">
-                                    <ComboBoxItem Content="Linea de produccion con widgets base" />
-                                    <ComboBoxItem Content="Canvas limpio" />
-                                    <ComboBoxItem Content="Instrumentacion de motor principal" />
-                                </ComboBox>
-
-                                <Grid Margin="0,2,0,24">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition />
-                                        <ColumnDefinition Width="14" />
-                                        <ColumnDefinition />
-                                        <ColumnDefinition Width="14" />
-                                        <ColumnDefinition />
-                                    </Grid.ColumnDefinitions>
-
-                                    <Border Background="#0F1B2A" BorderBrush="#1D4E89" BorderThickness="1" Padding="15">
-                                        <StackPanel>
-                                            <TextBlock Text="Telemetria MQTT" Foreground="#6EE7B7" FontWeight="SemiBold" FontSize="15" />
-                                            <TextBlock Text="Topic visualiot/# preparado para ESP32." Foreground="#B7C6D8" TextWrapping="Wrap" Margin="0,6,0,0" />
-                                        </StackPanel>
-                                    </Border>
-
-                                    <Border Grid.Column="2" Background="#11192A" BorderBrush="#7C3AED" BorderThickness="1" Padding="15">
-                                        <StackPanel>
-                                            <TextBlock Text="Dashboard libre" Foreground="#C4B5FD" FontWeight="SemiBold" FontSize="15" />
-                                            <TextBlock Text="Widgets editables con drag and drop." Foreground="#B7C6D8" TextWrapping="Wrap" Margin="0,6,0,0" />
-                                        </StackPanel>
-                                    </Border>
-
-                                    <Border Grid.Column="4" Background="#1B1A12" BorderBrush="#F59E0B" BorderThickness="1" Padding="15">
-                                        <StackPanel>
-                                            <TextBlock Text="Vista industrial" Foreground="#FCD34D" FontWeight="SemiBold" FontSize="15" />
-                                            <TextBlock Text="Indicadores pensados para motores y procesos." Foreground="#D6CDB2" TextWrapping="Wrap" Margin="0,6,0,0" />
-                                        </StackPanel>
-                                    </Border>
-                                </Grid>
-
-                                <Button x:Name="CreateDashboardButton"
-                                        Content="Crear dashboard"
-                                        Height="46"
-                                        FontSize="15"
-                                        FontWeight="SemiBold"
-                                        Background="#10B981"
-                                        BorderBrush="#34D399"
-                                        Click="CreateDashboardButton_Click" />
-                            </StackPanel>
-                        </ScrollViewer>
-                    </Grid>
-                </Border>
-            </Grid>
-        </Border>
     </Grid>
 </Window>

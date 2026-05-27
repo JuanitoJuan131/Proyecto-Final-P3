@@ -31,9 +31,16 @@ namespace GUI
         private bool _wasDragged;
         private bool _simulationRunning = true;
         private int _mqttMessageCount;
+        private DashboardStartupOptions _startupOptions;
 
         public MainWindow()
+            : this(new DashboardStartupOptions())
         {
+        }
+
+        public MainWindow(DashboardStartupOptions startupOptions)
+        {
+            _startupOptions = startupOptions ?? new DashboardStartupOptions();
             InitializeComponent();
             WidgetPaletteItems = new ObservableCollection<WidgetPaletteItem>();
             Motors = new ObservableCollection<MotorCardViewModel>();
@@ -43,6 +50,7 @@ namespace GUI
             LoadPalette();
             LoadMotors();
             DataContext = this;
+            CreateDashboardFromOptions(_startupOptions);
         }
 
         public ObservableCollection<WidgetPaletteItem> WidgetPaletteItems { get; private set; }
@@ -161,16 +169,18 @@ namespace GUI
             }
         }
 
-        private void CreateDashboardButton_Click(object sender, RoutedEventArgs e)
-        {
-            CreateDashboardFromForm();
-        }
-
         private void NewDashboardButton_Click(object sender, RoutedEventArgs e)
         {
-            CreationOverlay.Visibility = Visibility.Visible;
-            DashboardNameTextBox.Focus();
-            DashboardNameTextBox.SelectAll();
+            var setupWindow = new DashboardCreationWindow
+            {
+                Owner = this,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner
+            };
+
+            if (setupWindow.ShowDialog() == true)
+            {
+                CreateDashboardFromOptions(setupWindow.SelectedOptions);
+            }
         }
 
         private void WidgetPalette_PreviewMouseMove(object sender, MouseEventArgs e)
@@ -325,14 +335,16 @@ namespace GUI
             WidgetPaletteItems.Add(new WidgetPaletteItem(WidgetType.AlarmPanel, "Alarmas", "Mensajes activos"));
         }
 
-        private void CreateDashboardFromForm()
+        private void CreateDashboardFromOptions(DashboardStartupOptions options)
         {
-            var projectName = string.IsNullOrWhiteSpace(ProjectNameTextBox.Text)
+            options = options ?? new DashboardStartupOptions();
+
+            var projectName = string.IsNullOrWhiteSpace(options.ProjectName)
                 ? "Proyecto VisualIoT"
-                : ProjectNameTextBox.Text.Trim();
-            var dashboardName = string.IsNullOrWhiteSpace(DashboardNameTextBox.Text)
+                : options.ProjectName.Trim();
+            var dashboardName = string.IsNullOrWhiteSpace(options.DashboardName)
                 ? "Dashboard principal"
-                : DashboardNameTextBox.Text.Trim();
+                : options.DashboardName.Trim();
 
             ProjectNameHeaderTextBlock.Text = projectName;
             DashboardNameHeaderTextBlock.Text = dashboardName;
@@ -341,7 +353,7 @@ namespace GUI
             _widgets.Clear();
             EmptyDashboardText.Visibility = Visibility.Visible;
 
-            var template = DashboardTemplateComboBox.SelectedIndex;
+            var template = options.TemplateIndex;
             if (template == 0)
             {
                 AddDefaultWidgets();
@@ -355,7 +367,6 @@ namespace GUI
                 AddWidget(WidgetType.AlarmPanel, 352, 264, "MOTOR_01.Alarma", "Registro de alertas");
             }
 
-            CreationOverlay.Visibility = Visibility.Collapsed;
             AddEvent("Dashboard creado: " + dashboardName);
         }
 
@@ -402,8 +413,9 @@ namespace GUI
                 Width = width,
                 Height = height,
                 Background = new SolidColorBrush(Color.FromRgb(27, 34, 45)),
-                BorderBrush = new SolidColorBrush(Color.FromRgb(43, 58, 81)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(52, 70, 94)),
                 BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(6),
                 Padding = new Thickness(12),
                 Child = BuildWidgetContent(widget)
             };
@@ -487,7 +499,7 @@ namespace GUI
                 FontSize = 26,
                 FontFamily = new FontFamily("Consolas"),
                 FontWeight = FontWeights.Bold,
-                Foreground = widget.AccentBrush
+                Foreground = Brushes.White
             };
             valueLine.Children.Add(value);
             valueLine.Children.Add(new TextBlock
@@ -587,7 +599,7 @@ namespace GUI
                 FontSize = 24,
                 FontFamily = new FontFamily("Consolas"),
                 FontWeight = FontWeights.Bold,
-                Foreground = widget.AccentBrush,
+                Foreground = Brushes.White,
                 HorizontalAlignment = HorizontalAlignment.Center
             };
             Grid.SetRow(value, 2);
@@ -752,7 +764,7 @@ namespace GUI
         {
             if (_selectedWidget != null && _selectedWidget.Container != null)
             {
-                _selectedWidget.Container.BorderBrush = new SolidColorBrush(Color.FromRgb(43, 58, 81));
+                _selectedWidget.Container.BorderBrush = new SolidColorBrush(Color.FromRgb(52, 70, 94));
                 _selectedWidget.Container.BorderThickness = new Thickness(1);
             }
 
