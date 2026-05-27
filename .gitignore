@@ -1,0 +1,39 @@
+# Visual Studio user/cache files
+.vs/
+*.suo
+*.user
+*.rsuser
+*.userosscache
+*.sln.docstates
+
+# Build output
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Ll]og/
+[Ll]ogs/
+*.pdb
+*.cache
+*.log
+*.tmp
+*.binlog
+
+# NuGet packages are restored from packages.config
+[Pp]ackages/
+*.nupkg
+*.snupkg
+
+# IDE/editor/local files
+.idea/
+.vscode/
+Thumbs.db
+Desktop.ini
+
+# Local review/reference material
+/VisualIoT/
+_legacy_review/
+_motorsim_reference/
+_wokwi_wifi_scan/
