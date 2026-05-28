@@ -13,6 +13,9 @@
     <Window.Resources>
         <SolidColorBrush x:Key="TextBrush" Color="#F7FAFC" />
         <SolidColorBrush x:Key="MutedTextBrush" Color="#A8B6C7" />
+        <SolidColorBrush x:Key="IndustrialYellowBrush" Color="#F7C948" />
+        <SolidColorBrush x:Key="ElectricCyanBrush" Color="#22D3EE" />
+        <DropShadowEffect x:Key="SoftShadow" BlurRadius="24" Direction="270" ShadowDepth="5" Opacity="0.32" Color="#000000" />
         <Style TargetType="TextBlock">
             <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
             <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
@@ -22,7 +25,7 @@
             <Setter Property="Padding" Value="12,7" />
             <Setter Property="Foreground" Value="#F7FAFC" />
             <Setter Property="Background" Value="#101722" />
-            <Setter Property="BorderBrush" Value="#33455F" />
+            <Setter Property="BorderBrush" Value="#334B67" />
             <Setter Property="BorderThickness" Value="1" />
         </Style>
         <Style TargetType="ComboBox">
@@ -37,15 +40,15 @@
             <Setter Property="Padding" Value="12,7" />
             <Setter Property="Foreground" Value="#F7FAFC" />
             <Setter Property="Background" Value="#101722" />
-            <Setter Property="BorderBrush" Value="#33455F" />
+            <Setter Property="BorderBrush" Value="#334B67" />
             <Setter Property="BorderThickness" Value="1" />
         </Style>
         <Style TargetType="Button">
             <Setter Property="MinHeight" Value="44" />
             <Setter Property="Padding" Value="18,9" />
             <Setter Property="Foreground" Value="#F7FAFC" />
-            <Setter Property="Background" Value="#128F7C" />
-            <Setter Property="BorderBrush" Value="#2DD4BF" />
+            <Setter Property="Background" Value="#1C2A3D" />
+            <Setter Property="BorderBrush" Value="#22D3EE" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="FontWeight" Value="SemiBold" />
@@ -56,19 +59,22 @@
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="6"
+                                CornerRadius="9"
                                 SnapsToDevicePixels="True">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="12" Direction="270" ShadowDepth="2" Opacity="0.24" Color="#000000" />
+                            </Border.Effect>
                             <ContentPresenter HorizontalAlignment="Center"
                                               VerticalAlignment="Center"
                                               Margin="{TemplateBinding Padding}" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ButtonChrome" Property="Background" Value="#16A38F" />
-                                <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="#5EEAD4" />
+                                <Setter TargetName="ButtonChrome" Property="Background" Value="#244464" />
+                                <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="#F7C948" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="ButtonChrome" Property="Background" Value="#0F766E" />
+                                <Setter TargetName="ButtonChrome" Property="Background" Value="#102033" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="ButtonChrome" Property="Opacity" Value="0.55" />
@@ -84,8 +90,8 @@
         <Grid.Background>
             <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
                 <GradientStop Color="#0B1018" Offset="0" />
-                <GradientStop Color="#101827" Offset="0.58" />
-                <GradientStop Color="#0A1420" Offset="1" />
+                <GradientStop Color="#111827" Offset="0.52" />
+                <GradientStop Color="#06111D" Offset="1" />
             </LinearGradientBrush>
         </Grid.Background>
 
@@ -105,14 +111,15 @@
                 Background="#121A27"
                 BorderBrush="#315070"
                 BorderThickness="1"
-                CornerRadius="8">
+                CornerRadius="10"
+                Effect="{StaticResource SoftShadow}">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <Border Background="#172235" BorderBrush="#315070" BorderThickness="0,0,0,1" CornerRadius="8,8,0,0" Padding="28,24">
+                <Border Background="#172235" BorderBrush="#315070" BorderThickness="0,0,0,1" CornerRadius="10,10,0,0" Padding="28,24">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -120,8 +127,8 @@
                         </Grid.ColumnDefinitions>
 
                         <StackPanel>
-                            <TextBlock Text="VisualIoT" FontSize="32" FontWeight="SemiBold" />
-                            <TextBlock Text="Acceso de usuario al monitoreo industrial."
+                            <TextBlock Text="VisualIoT SCADA" FontSize="32" FontWeight="SemiBold" Foreground="{StaticResource IndustrialYellowBrush}" />
+                            <TextBlock Text="Acceso seguro a la plataforma industrial IoT."
                                        Foreground="{StaticResource MutedTextBrush}"
                                        FontSize="15"
                                        TextWrapping="Wrap"
@@ -130,12 +137,12 @@
 
                         <Border Grid.Column="1"
                                 Background="#123D45"
-                                BorderBrush="#2DD4BF"
+                                BorderBrush="#22D3EE"
                                 BorderThickness="1"
                                 CornerRadius="5"
                                 Padding="14,8"
                                 VerticalAlignment="Top">
-                            <TextBlock Text="MQTT READY" FontWeight="Bold" FontSize="12" Foreground="#DFFCF7" />
+                            <TextBlock Text="ORACLE READY" FontWeight="Bold" FontSize="12" Foreground="#DFFCF7" />
                         </Border>
                     </Grid>
                 </Border>
@@ -154,7 +161,7 @@
                                Margin="0,14,0,18" />
 
                     <Button x:Name="LoginButton"
-                            Content="Ingresar al dashboard"
+                            Content="Ingresar a proyectos"
                             Click="LoginButton_Click" />
                 </StackPanel>
             </Grid>

@@ -28,15 +28,8 @@ namespace GUI
                 return;
             }
 
-            SelectedOptions = new DashboardStartupOptions
-            {
-                ProjectName = "Proyecto VisualIoT",
-                DashboardName = "Dashboard principal",
-                TemplateIndex = 0
-            };
-
-            var dashboard = new MainWindow(SelectedOptions);
-            dashboard.Show();
+            var projects = new ProyectosRecientes(resultado.Usuario);
+            projects.Show();
             Close();
         }
     }

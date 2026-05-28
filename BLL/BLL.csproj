@@ -44,7 +44,9 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Dashboards\DashboardWorkspaceService.cs" />
     <Compile Include="Mqtt\MqttTelemetryService.cs" />
+    <Compile Include="Persistence\TelemetryPersistenceService.cs" />
     <Compile Include="Security\AutenticacionService.cs" />
     <Compile Include="Simulation\AlarmManager.cs" />
     <Compile Include="Simulation\EngineSimulator.cs" />

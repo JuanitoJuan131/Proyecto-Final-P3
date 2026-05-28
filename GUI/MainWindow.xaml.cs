@@ -1,3 +1,4 @@
+using BLL.Dashboards;
 using BLL.Simulation;
 using ENTITY.Models;
 using System;
@@ -7,6 +8,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Web.Script.Serialization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -20,6 +22,7 @@ namespace GUI
     public partial class MainWindow : Window
     {
         private const int CellSize = 88;
+        private readonly DashboardWorkspaceService _dashboardService = new DashboardWorkspaceService();
         private readonly SimulationManager _simulationManager = new SimulationManager();
         private readonly DispatcherTimer _clockTimer = new DispatcherTimer();
         private readonly Dictionary<string, MotorCardViewModel> _motorMap = new Dictionary<string, MotorCardViewModel>(StringComparer.OrdinalIgnoreCase);
@@ -33,6 +36,8 @@ namespace GUI
         private int _mqttMessageCount;
         private DashboardStartupOptions _startupOptions;
         private string _selectedMotorId;
+        private int _currentProjectId;
+        private int _currentDashboardId;
 
         public MainWindow()
             : this(new DashboardStartupOptions())
@@ -53,6 +58,8 @@ namespace GUI
             LoadMotors();
             DataContext = this;
             SetSelectedMotor(string.IsNullOrWhiteSpace(_startupOptions.MotorId) ? "MOTOR_01" : _startupOptions.MotorId);
+            _currentProjectId = _startupOptions.ProjectId;
+            _currentDashboardId = _startupOptions.DashboardId;
             CreateDashboardFromOptions(_startupOptions);
         }
 
@@ -66,6 +73,7 @@ namespace GUI
             _simulationManager.TagValueChanged += SimulationManager_TagValueChanged;
             _simulationManager.MqttConnectionChanged += SimulationManager_MqttConnectionChanged;
             _simulationManager.MqttMessageReceived += SimulationManager_MqttMessageReceived;
+            _simulationManager.PersistenceWarning += SimulationManager_PersistenceWarning;
             _simulationManager.TagsCleared += SimulationManager_TagsCleared;
             _simulationManager.StartSimulation();
 
@@ -182,8 +190,30 @@ namespace GUI
 
             if (setupWindow.ShowDialog() == true)
             {
+                setupWindow.SelectedOptions.UserId = _startupOptions.UserId;
+                setupWindow.SelectedOptions.UserName = _startupOptions.UserName;
+                setupWindow.SelectedOptions.ProjectId = _currentProjectId;
                 CreateDashboardFromOptions(setupWindow.SelectedOptions);
             }
+        }
+
+        private void SaveDashboardButton_Click(object sender, RoutedEventArgs e)
+        {
+            GuardarDashboardActual();
+        }
+
+        private void BackToProjectsButton_Click(object sender, RoutedEventArgs e)
+        {
+            var usuario = new Usuario
+            {
+                IdUsuario = _startupOptions.UserId,
+                Nombre = string.IsNullOrWhiteSpace(_startupOptions.UserName) ? "Usuario" : _startupOptions.UserName,
+                Rol = string.IsNullOrWhiteSpace(_startupOptions.UserRole) ? "operario" : _startupOptions.UserRole
+            };
+
+            var projectsWindow = new ProyectosRecientes(usuario);
+            projectsWindow.Show();
+            Close();
         }
 
         private void WidgetPalette_PreviewMouseMove(object sender, MouseEventArgs e)
@@ -318,6 +348,11 @@ namespace GUI
             });
         }
 
+        private void SimulationManager_PersistenceWarning(string message)
+        {
+            Dispatcher.Invoke(() => AddEvent(message));
+        }
+
         private void SimulationManager_TagValueChanged(string tag, object value)
         {
             Dispatcher.Invoke(() =>
@@ -352,6 +387,7 @@ namespace GUI
         private void CreateDashboardFromOptions(DashboardStartupOptions options)
         {
             options = options ?? new DashboardStartupOptions();
+            _startupOptions = options;
 
             var projectName = string.IsNullOrWhiteSpace(options.ProjectName)
                 ? "Proyecto VisualIoT"
@@ -364,12 +400,21 @@ namespace GUI
                 : options.MotorId.Trim();
 
             SetSelectedMotor(motorId);
+            _currentProjectId = options.ProjectId;
+            _currentDashboardId = options.DashboardId;
             ProjectNameHeaderTextBlock.Text = projectName;
             DashboardNameHeaderTextBlock.Text = dashboardName + " - " + motorId;
 
             DashboardCanvas.Children.Clear();
             _widgets.Clear();
             EmptyDashboardText.Visibility = Visibility.Visible;
+
+            if (options.LoadFromLayout && !string.IsNullOrWhiteSpace(options.LayoutJson))
+            {
+                LoadDashboardFromJson(options.LayoutJson);
+                AddEvent("Dashboard recuperado desde Oracle: " + dashboardName);
+                return;
+            }
 
             var template = options.TemplateIndex;
             if (template == 0)
@@ -449,11 +494,16 @@ namespace GUI
 
         private void AddWidget(TipoWidget type, double left, double top, string tag, string title)
         {
-            EmptyDashboardText.Visibility = Visibility.Collapsed;
-
             var width = type == TipoWidget.Tendencia || type == TipoWidget.PanelAlarmas ? CellSize * 4 : CellSize * 3;
             var height = type == TipoWidget.Tendencia || type == TipoWidget.PanelAlarmas ? CellSize * 2 : CellSize * 2;
-            var widget = CreateWidgetViewModel(type, tag, title);
+            AddWidget(type, left, top, tag, title, width, height, null);
+        }
+
+        private void AddWidget(TipoWidget type, double left, double top, string tag, string title, double width, double height, string color)
+        {
+            EmptyDashboardText.Visibility = Visibility.Collapsed;
+
+            var widget = CreateWidgetViewModel(type, tag, title, color);
             var border = new Border
             {
                 Width = width,
@@ -476,7 +526,33 @@ namespace GUI
             Canvas.SetTop(border, top);
             DashboardCanvas.Children.Add(border);
             _widgets.Add(widget);
+            AnimateWidgetEntrance(border);
             ApplyCurrentValue(widget);
+        }
+
+        private static void AnimateWidgetEntrance(UIElement element)
+        {
+            element.Opacity = 0;
+            element.RenderTransformOrigin = new Point(0.5, 0.5);
+            element.RenderTransform = new ScaleTransform(0.96, 0.96);
+
+            element.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(220))
+            {
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            });
+
+            var transform = element.RenderTransform as ScaleTransform;
+            if (transform != null)
+            {
+                transform.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(0.96, 1, TimeSpan.FromMilliseconds(220))
+                {
+                    EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+                });
+                transform.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(0.96, 1, TimeSpan.FromMilliseconds(220))
+                {
+                    EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+                });
+            }
         }
 
         private ContextMenu BuildWidgetContextMenu(DashboardWidgetViewModel widget)
@@ -488,9 +564,9 @@ namespace GUI
             return menu;
         }
 
-        private DashboardWidgetViewModel CreateWidgetViewModel(TipoWidget type, string tag, string title)
+        private DashboardWidgetViewModel CreateWidgetViewModel(TipoWidget type, string tag, string title, string color = null)
         {
-            var accent = AccentFor(tag, type);
+            var accent = ParseColor(color) ?? AccentFor(tag, type);
             return new DashboardWidgetViewModel
             {
                 Type = type,
@@ -498,6 +574,7 @@ namespace GUI
                 Title = title,
                 ValueText = "--",
                 Unit = UnitFor(tag),
+                Color = ColorToText(accent),
                 AccentBrush = new SolidColorBrush(accent),
                 BadgeBrush = new SolidColorBrush(Color.FromArgb(32, accent.R, accent.G, accent.B))
             };
@@ -990,6 +1067,135 @@ namespace GUI
             }
         }
 
+        private void GuardarDashboardActual()
+        {
+            try
+            {
+                if (_currentProjectId <= 0)
+                {
+                    if (_startupOptions.UserId <= 0)
+                    {
+                        throw new InvalidOperationException("No hay usuario autenticado para asociar el proyecto.");
+                    }
+
+                    var proyecto = _dashboardService.CrearProyecto(
+                        _startupOptions.UserId,
+                        string.IsNullOrWhiteSpace(_startupOptions.ProjectName) ? ProjectNameHeaderTextBlock.Text : _startupOptions.ProjectName);
+                    _currentProjectId = proyecto.IdProyecto;
+                    _startupOptions.ProjectId = proyecto.IdProyecto;
+                    _startupOptions.ProjectName = proyecto.Nombre;
+                }
+
+                if (_currentDashboardId <= 0)
+                {
+                    var dashboard = _dashboardService.CrearDashboard(
+                        _currentProjectId,
+                        string.IsNullOrWhiteSpace(_startupOptions.DashboardName) ? "Dashboard SCADA" : _startupOptions.DashboardName);
+                    _currentDashboardId = dashboard.IdDashboard;
+                    _startupOptions.DashboardId = dashboard.IdDashboard;
+                    _startupOptions.DashboardName = dashboard.Nombre;
+                }
+
+                var layoutJson = SerializeDashboardLayout();
+                _dashboardService.GuardarLayout(
+                    _currentDashboardId,
+                    _startupOptions.DashboardName,
+                    _currentProjectId,
+                    layoutJson);
+
+                _startupOptions.LayoutJson = layoutJson;
+                _startupOptions.LoadFromLayout = true;
+                AddEvent("Dashboard guardado en Oracle con " + _widgets.Count + " widgets");
+                StatusBarTextBlock.Text = "Dashboard guardado correctamente";
+            }
+            catch (Exception ex)
+            {
+                AddEvent("Error al guardar dashboard: " + ex.Message);
+                StatusBarTextBlock.Text = "No se pudo guardar el dashboard";
+            }
+        }
+
+        private string SerializeDashboardLayout()
+        {
+            var layout = new DashboardLayoutDocument
+            {
+                projectId = _currentProjectId,
+                dashboardId = _currentDashboardId,
+                dashboardName = _startupOptions.DashboardName,
+                motorId = _selectedMotorId,
+                savedAt = DateTime.Now.ToString("o", CultureInfo.InvariantCulture),
+                widgets = _widgets.Select(w =>
+                {
+                    var left = w.Container == null ? 0 : Canvas.GetLeft(w.Container);
+                    var top = w.Container == null ? 0 : Canvas.GetTop(w.Container);
+                    return new DashboardWidgetLayout
+                    {
+                        tipo = w.Type.ToString(),
+                        x = double.IsNaN(left) ? 0 : left,
+                        y = double.IsNaN(top) ? 0 : top,
+                        width = w.Container == null ? 0 : w.Container.Width,
+                        height = w.Container == null ? 0 : w.Container.Height,
+                        tag = w.Tag,
+                        titulo = w.Title,
+                        color = w.Color,
+                        sensor = w.Tag
+                    };
+                }).ToList()
+            };
+
+            return new JavaScriptSerializer().Serialize(layout);
+        }
+
+        private void LoadDashboardFromJson(string layoutJson)
+        {
+            DashboardLayoutDocument layout;
+            try
+            {
+                layout = new JavaScriptSerializer().Deserialize<DashboardLayoutDocument>(layoutJson);
+            }
+            catch
+            {
+                layout = null;
+            }
+
+            if (layout == null || layout.widgets == null || layout.widgets.Count == 0)
+            {
+                AddEvent("El dashboard no tiene widgets guardados");
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(layout.motorId))
+            {
+                SetSelectedMotor(layout.motorId);
+            }
+
+            foreach (var savedWidget in layout.widgets)
+            {
+                AddWidget(
+                    WidgetTypeFromLayout(savedWidget.tipo),
+                    savedWidget.x,
+                    savedWidget.y,
+                    string.IsNullOrWhiteSpace(savedWidget.tag) ? savedWidget.sensor : savedWidget.tag,
+                    string.IsNullOrWhiteSpace(savedWidget.titulo) ? DefaultTitleFor(WidgetTypeFromLayout(savedWidget.tipo)) : savedWidget.titulo,
+                    savedWidget.width > 0 ? savedWidget.width : CellSize * 3,
+                    savedWidget.height > 0 ? savedWidget.height : CellSize * 2,
+                    savedWidget.color);
+            }
+        }
+
+        private static TipoWidget WidgetTypeFromLayout(string tipo)
+        {
+            if (string.Equals(tipo, "grafica", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(tipo, "grafico", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(tipo, "chart", StringComparison.OrdinalIgnoreCase))
+            {
+                return TipoWidget.Tendencia;
+            }
+
+            TipoWidget parsed;
+            return Enum.TryParse(tipo, true, out parsed) ? parsed : TipoWidget.Numerico;
+        }
+
         private static void RedrawTrend(DashboardWidgetViewModel widget)
         {
             if (widget.History.Count == 0)
@@ -1085,6 +1291,30 @@ namespace GUI
             if (EndsWithTag(tag, ".Nivel")) return Color.FromRgb(34, 211, 238);
             if (EndsWithTag(tag, ".Estado")) return Color.FromRgb(16, 185, 129);
             return Color.FromRgb(251, 191, 36);
+        }
+
+        private static Color? ParseColor(string color)
+        {
+            if (string.IsNullOrWhiteSpace(color))
+            {
+                return null;
+            }
+
+            try
+            {
+                return (Color)ColorConverter.ConvertFromString(color);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static string ColorToText(Color color)
+        {
+            return "#" + color.R.ToString("X2", CultureInfo.InvariantCulture)
+                + color.G.ToString("X2", CultureInfo.InvariantCulture)
+                + color.B.ToString("X2", CultureInfo.InvariantCulture);
         }
 
         private string ResolveDefaultTagFor(TipoWidget type)
@@ -1204,6 +1434,7 @@ namespace GUI
         public string Title { get; set; }
         public string ValueText { get; set; }
         public string Unit { get; set; }
+        public string Color { get; set; }
         public Brush AccentBrush { get; set; }
         public Brush BadgeBrush { get; set; }
         public Border Container { get; set; }
@@ -1335,6 +1566,29 @@ namespace GUI
                 return new SolidColorBrush(Color.FromRgb(143, 160, 179));
             }
         }
+    }
+
+    public class DashboardLayoutDocument
+    {
+        public int projectId { get; set; }
+        public int dashboardId { get; set; }
+        public string dashboardName { get; set; }
+        public string motorId { get; set; }
+        public string savedAt { get; set; }
+        public List<DashboardWidgetLayout> widgets { get; set; }
+    }
+
+    public class DashboardWidgetLayout
+    {
+        public string tipo { get; set; }
+        public double x { get; set; }
+        public double y { get; set; }
+        public double width { get; set; }
+        public double height { get; set; }
+        public string tag { get; set; }
+        public string sensor { get; set; }
+        public string titulo { get; set; }
+        public string color { get; set; }
     }
 
     public abstract class NotifyObject : INotifyPropertyChanged

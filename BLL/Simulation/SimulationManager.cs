@@ -1,4 +1,5 @@
 using BLL.Mqtt;
+using BLL.Persistence;
 using ENTITY.Models;
 using System;
 using System.Collections.Generic;
@@ -11,6 +12,7 @@ namespace BLL.Simulation
     {
         private readonly Dictionary<string, object> _tags = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
         private readonly MqttTelemetryService _mqtt = new MqttTelemetryService();
+        private readonly TelemetryPersistenceService _persistence = new TelemetryPersistenceService();
         private bool _mqttTelemetryActive;
 
         public SimulationManager()
@@ -20,6 +22,7 @@ namespace BLL.Simulation
             Engine.Dispatcher.TagUpdated += OnSimulatorTagUpdated;
             _mqtt.MessageReceived += OnMqttMessageReceived;
             _mqtt.ConnectionChanged += (connected, message) => MqttConnectionChanged?.Invoke(connected, message);
+            _persistence.PersistenceWarning += message => PersistenceWarning?.Invoke(message);
         }
 
         public EngineSimulator Engine { get; private set; }
@@ -28,6 +31,7 @@ namespace BLL.Simulation
         public event Action<string, object> TagValueChanged;
         public event Action<bool, string> MqttConnectionChanged;
         public event Action<string, string> MqttMessageReceived;
+        public event Action<string> PersistenceWarning;
         public event Action TagsCleared;
 
         public IReadOnlyDictionary<string, object> Tags
@@ -124,6 +128,11 @@ namespace BLL.Simulation
         private void UpdateTag(string tag, object value)
         {
             _tags[tag] = value;
+            double numericValue;
+            if (double.TryParse(Convert.ToString(value, CultureInfo.InvariantCulture), NumberStyles.Any, CultureInfo.InvariantCulture, out numericValue))
+            {
+                Task.Run(() => _persistence.PersistirLectura(tag, numericValue));
+            }
             TagValueChanged?.Invoke(tag, value);
         }
     }
