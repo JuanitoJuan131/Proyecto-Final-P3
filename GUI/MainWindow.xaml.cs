@@ -1,3 +1,4 @@
+using BLL.Automation;
 using BLL.Dashboards;
 using BLL.Simulation;
 using ENTITY.Models;
@@ -22,11 +23,13 @@ namespace GUI
     public partial class MainWindow : Window
     {
         private const int CellSize = 88;
+        private readonly AutomationRuleService _automationService = new AutomationRuleService();
         private readonly DashboardWorkspaceService _dashboardService = new DashboardWorkspaceService();
         private readonly SimulationManager _simulationManager = new SimulationManager();
         private readonly DispatcherTimer _clockTimer = new DispatcherTimer();
         private readonly Dictionary<string, MotorCardViewModel> _motorMap = new Dictionary<string, MotorCardViewModel>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, TagRowViewModel> _tagRows = new Dictionary<string, TagRowViewModel>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, DateTime> _lastAutomationEvaluation = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
         private readonly List<DashboardWidgetViewModel> _widgets = new List<DashboardWidgetViewModel>();
         private DashboardWidgetViewModel _draggingWidget;
         private DashboardWidgetViewModel _selectedWidget;
@@ -202,6 +205,27 @@ namespace GUI
             GuardarDashboardActual();
         }
 
+        private void AutomationButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentDashboardId <= 0)
+            {
+                GuardarDashboardActual();
+            }
+
+            if (_currentDashboardId <= 0)
+            {
+                AddEvent("Guarda el dashboard antes de configurar automatizacion.");
+                return;
+            }
+
+            var window = new AutomatizacionWindow(_currentDashboardId)
+            {
+                Owner = this,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner
+            };
+            window.ShowDialog();
+        }
+
         private void BackToProjectsButton_Click(object sender, RoutedEventArgs e)
         {
             var usuario = new Usuario
@@ -360,7 +384,79 @@ namespace GUI
                 UpdateTagGrid(tag, value);
                 UpdateMotorCards(tag, value);
                 UpdateDashboardWidgets(tag, value);
+                EvaluateAutomation(tag, value);
             });
+        }
+
+        private void EvaluateAutomation(string tag, object value)
+        {
+            double number;
+            if (_currentDashboardId <= 0 || !double.TryParse(Convert.ToString(value, CultureInfo.InvariantCulture), NumberStyles.Any, CultureInfo.InvariantCulture, out number))
+            {
+                return;
+            }
+
+            DateTime lastEvaluation;
+            if (_lastAutomationEvaluation.TryGetValue(tag, out lastEvaluation) && DateTime.Now - lastEvaluation < TimeSpan.FromSeconds(1))
+            {
+                return;
+            }
+            _lastAutomationEvaluation[tag] = DateTime.Now;
+
+            try
+            {
+                foreach (var result in _automationService.Evaluar(_currentDashboardId, tag, number))
+                {
+                    AddEvent("Automatizacion: " + result.Description);
+                    ApplyAutomationVisualState(result);
+                    ShowAutomationAlert(result);
+                }
+            }
+            catch (Exception ex)
+            {
+                AddEvent("Error de automatizacion: " + ex.Message);
+            }
+        }
+
+        private void ApplyAutomationVisualState(AutomationTriggerResult result)
+        {
+            var color = ParseColor(result.Color) ?? Color.FromRgb(239, 68, 68);
+            foreach (var widget in _widgets.Where(w => TagsMatch(w.Tag, result.Tag)))
+            {
+                if (widget.Container == null)
+                {
+                    continue;
+                }
+
+                widget.Container.BorderBrush = new SolidColorBrush(color);
+                widget.Container.BorderThickness = new Thickness(2);
+                widget.Container.Background = new SolidColorBrush(Color.FromArgb(68, color.R, color.G, color.B));
+            }
+        }
+
+        private void ShowAutomationAlert(AutomationTriggerResult result)
+        {
+            var color = ParseColor(result.Color) ?? Color.FromRgb(239, 68, 68);
+            AlertPopup.Visibility = Visibility.Visible;
+            AlertPopup.Background = new SolidColorBrush(Color.FromArgb(238, 30, 20, 24));
+            AlertPopup.BorderBrush = new SolidColorBrush(color);
+            AlertTitleTextBlock.Text = result.Severity.ToUpperInvariant() + " - " + result.RuleName;
+            AlertMessageTextBlock.Text = result.Description;
+
+            AlertPopup.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(180))
+            {
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            });
+
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
+            timer.Tick += (sender, args) =>
+            {
+                timer.Stop();
+                var fade = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(260));
+                fade.Completed += (s, e) => AlertPopup.Visibility = Visibility.Collapsed;
+                AlertPopup.BeginAnimation(OpacityProperty, fade);
+            };
+            timer.Start();
         }
 
         private void SimulationManager_TagsCleared()
@@ -1101,7 +1197,8 @@ namespace GUI
                     _currentDashboardId,
                     _startupOptions.DashboardName,
                     _currentProjectId,
-                    layoutJson);
+                    layoutJson,
+                    BuildWidgetPersistenceItems());
 
                 _startupOptions.LayoutJson = layoutJson;
                 _startupOptions.LoadFromLayout = true;
@@ -1113,6 +1210,26 @@ namespace GUI
                 AddEvent("Error al guardar dashboard: " + ex.Message);
                 StatusBarTextBlock.Text = "No se pudo guardar el dashboard";
             }
+        }
+
+        private List<DashboardWidgetPersistenceItem> BuildWidgetPersistenceItems()
+        {
+            return _widgets.Select(w =>
+            {
+                var left = w.Container == null ? 0 : Canvas.GetLeft(w.Container);
+                var top = w.Container == null ? 0 : Canvas.GetTop(w.Container);
+                return new DashboardWidgetPersistenceItem
+                {
+                    TipoWidget = w.Type,
+                    Tag = w.Tag,
+                    Titulo = w.Title,
+                    X = double.IsNaN(left) ? 0 : left,
+                    Y = double.IsNaN(top) ? 0 : top,
+                    Width = w.Container == null ? 0 : w.Container.Width,
+                    Height = w.Container == null ? 0 : w.Container.Height,
+                    Color = w.Color
+                };
+            }).ToList();
         }
 
         private string SerializeDashboardLayout()

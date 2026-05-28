@@ -450,8 +450,8 @@ namespace DAL.Repositories
     {
         public int Insertar(Widget entidad)
         {
-            const string sql = @"INSERT INTO widgets (tipo_widget, descripcion, posicion_x, posicion_y, id_dashboard, id_tag)
-                                 VALUES (:tipo_widget, :descripcion, :posicion_x, :posicion_y, :id_dashboard, :id_tag)
+            const string sql = @"INSERT INTO widgets (tipo_widget, descripcion, posicion_x, posicion_y, id_dashboard, id_tag, parametros_json)
+                                 VALUES (:tipo_widget, :descripcion, :posicion_x, :posicion_y, :id_dashboard, :id_tag, :parametros_json)
                                  RETURNING id_widget INTO :id";
             using (var conexion = CrearConexion())
             using (var comando = CrearComando(conexion, sql))
@@ -469,7 +469,8 @@ namespace DAL.Repositories
         {
             Ejecutar(@"UPDATE widgets
                       SET tipo_widget = :tipo_widget, descripcion = :descripcion, posicion_x = :posicion_x,
-                          posicion_y = :posicion_y, id_dashboard = :id_dashboard, id_tag = :id_tag
+                          posicion_y = :posicion_y, id_dashboard = :id_dashboard, id_tag = :id_tag,
+                          parametros_json = :parametros_json
                       WHERE id_widget = :id", comando =>
             {
                 Parametros(comando, entidad);
@@ -498,7 +499,79 @@ namespace DAL.Repositories
                 comando => AgregarParametro(comando, "id_dashboard", OracleDbType.Int32, idDashboard));
         }
 
+        public void ReemplazarPorDashboard(int idDashboard, IEnumerable<Widget> widgets)
+        {
+            try
+            {
+                ReemplazarPorDashboard(idDashboard, widgets, true);
+            }
+            catch (OracleException ex)
+            {
+                if (!IsParametrosJsonMissing(ex))
+                {
+                    throw;
+                }
+
+                ReemplazarPorDashboard(idDashboard, widgets, false);
+            }
+        }
+
+        private void ReemplazarPorDashboard(int idDashboard, IEnumerable<Widget> widgets, bool incluirParametrosJson)
+        {
+            using (var conexion = CrearConexion())
+            {
+                conexion.Open();
+                using (var transaccion = conexion.BeginTransaction())
+                {
+                    try
+                    {
+                        using (var borrar = CrearComando(conexion, "DELETE FROM widgets WHERE id_dashboard = :id_dashboard"))
+                        {
+                            borrar.Transaction = transaccion;
+                            AgregarParametro(borrar, "id_dashboard", OracleDbType.Int32, idDashboard);
+                            borrar.ExecuteNonQuery();
+                        }
+
+                        foreach (var widget in widgets)
+                        {
+                            widget.IdDashboard = idDashboard;
+                            var sql = incluirParametrosJson
+                                ? @"INSERT INTO widgets
+                                    (tipo_widget, descripcion, posicion_x, posicion_y, id_dashboard, id_tag, parametros_json)
+                                    VALUES (:tipo_widget, :descripcion, :posicion_x, :posicion_y, :id_dashboard, :id_tag, :parametros_json)
+                                    RETURNING id_widget INTO :id"
+                                : @"INSERT INTO widgets
+                                    (tipo_widget, descripcion, posicion_x, posicion_y, id_dashboard, id_tag)
+                                    VALUES (:tipo_widget, :descripcion, :posicion_x, :posicion_y, :id_dashboard, :id_tag)
+                                    RETURNING id_widget INTO :id";
+
+                            using (var insertar = CrearComando(conexion, sql))
+                            {
+                                insertar.Transaction = transaccion;
+                                Parametros(insertar, widget, incluirParametrosJson);
+                                var id = AgregarParametroIdSalida(insertar, "id");
+                                insertar.ExecuteNonQuery();
+                                widget.IdWidget = LeerIdSalida(id);
+                            }
+                        }
+
+                        transaccion.Commit();
+                    }
+                    catch
+                    {
+                        transaccion.Rollback();
+                        throw;
+                    }
+                }
+            }
+        }
+
         private static void Parametros(OracleCommand comando, Widget entidad)
+        {
+            Parametros(comando, entidad, true);
+        }
+
+        private static void Parametros(OracleCommand comando, Widget entidad, bool incluirParametrosJson)
         {
             AgregarParametro(comando, "tipo_widget", OracleDbType.Varchar2, entidad.TipoWidget.ToString());
             AgregarParametro(comando, "descripcion", OracleDbType.Varchar2, entidad.Descripcion);
@@ -506,6 +579,10 @@ namespace DAL.Repositories
             AgregarParametro(comando, "posicion_y", OracleDbType.Decimal, entidad.PosicionY);
             AgregarParametro(comando, "id_dashboard", OracleDbType.Int32, entidad.IdDashboard);
             AgregarParametro(comando, "id_tag", OracleDbType.Int32, entidad.IdTag.HasValue ? (object)entidad.IdTag.Value : DBNull.Value);
+            if (incluirParametrosJson)
+            {
+                AgregarParametro(comando, "parametros_json", OracleDbType.Clob, entidad.ParametrosJson);
+            }
         }
 
         private static Widget Mapear(OracleDataReader lector)
@@ -520,8 +597,29 @@ namespace DAL.Repositories
                 PosicionX = LeerDecimal(lector, "posicion_x"),
                 PosicionY = LeerDecimal(lector, "posicion_y"),
                 IdDashboard = LeerEntero(lector, "id_dashboard"),
-                IdTag = LeerEnteroNullable(lector, "id_tag")
+                IdTag = LeerEnteroNullable(lector, "id_tag"),
+                ParametrosJson = HasColumn(lector, "parametros_json") ? LeerTexto(lector, "parametros_json") : null
             };
+        }
+
+        private static bool IsParametrosJsonMissing(OracleException ex)
+        {
+            return ex != null
+                && ex.Message != null
+                && ex.Message.IndexOf("PARAMETROS_JSON", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static bool HasColumn(OracleDataReader lector, string columnName)
+        {
+            for (var index = 0; index < lector.FieldCount; index++)
+            {
+                if (string.Equals(lector.GetName(index), columnName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 
@@ -648,6 +746,12 @@ namespace DAL.Repositories
                 comando => AgregarParametro(comando, "id_regla", OracleDbType.Int32, idRegla));
         }
 
+        public void EliminarPorRegla(int idRegla)
+        {
+            Ejecutar("DELETE FROM condiciones WHERE id_regla = :id_regla",
+                comando => AgregarParametro(comando, "id_regla", OracleDbType.Int32, idRegla));
+        }
+
         private static void Parametros(OracleCommand comando, Condicion entidad)
         {
             AgregarParametro(comando, "operador", OracleDbType.Varchar2, entidad.Operador);
@@ -717,6 +821,12 @@ namespace DAL.Repositories
         public List<Accion> ObtenerPorRegla(int idRegla)
         {
             return Consultar("SELECT * FROM acciones WHERE id_regla = :id_regla ORDER BY id_accion", Mapear,
+                comando => AgregarParametro(comando, "id_regla", OracleDbType.Int32, idRegla));
+        }
+
+        public void EliminarPorRegla(int idRegla)
+        {
+            Ejecutar("DELETE FROM acciones WHERE id_regla = :id_regla",
                 comando => AgregarParametro(comando, "id_regla", OracleDbType.Int32, idRegla));
         }
 

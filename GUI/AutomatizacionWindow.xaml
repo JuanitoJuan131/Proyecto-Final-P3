@@ -1,0 +1,370 @@
+<Window x:Class="GUI.AutomatizacionWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="VisualIoT - Automatizacion industrial"
+        Height="720"
+        Width="1100"
+        MinHeight="640"
+        MinWidth="960"
+        WindowStartupLocation="CenterOwner"
+        Background="#090D13"
+        FontFamily="Segoe UI"
+        FontSize="13.5">
+    <Window.Resources>
+        <SolidColorBrush x:Key="ShellBrush" Color="#090D13" />
+        <SolidColorBrush x:Key="PanelBrush" Color="#121923" />
+        <SolidColorBrush x:Key="PanelAltBrush" Color="#17212D" />
+        <SolidColorBrush x:Key="FieldBrush" Color="#0D141D" />
+        <SolidColorBrush x:Key="LineBrush" Color="#2B3B50" />
+        <SolidColorBrush x:Key="TextBrush" Color="#F2F7FB" />
+        <SolidColorBrush x:Key="MutedTextBrush" Color="#A8B6C7" />
+        <SolidColorBrush x:Key="DimTextBrush" Color="#7F91A6" />
+        <SolidColorBrush x:Key="AccentBrush" Color="#28C7A4" />
+        <SolidColorBrush x:Key="AccentBlueBrush" Color="#38BDF8" />
+        <SolidColorBrush x:Key="IndustrialYellowBrush" Color="#F7C948" />
+        <SolidColorBrush x:Key="DangerBrush" Color="#EF4444" />
+        <DropShadowEffect x:Key="SoftShadow" BlurRadius="22" Direction="270" ShadowDepth="5" Opacity="0.28" Color="#000000" />
+
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
+        </Style>
+
+        <Style x:Key="CaptionText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
+
+        <Style TargetType="Button">
+            <Setter Property="MinHeight" Value="38" />
+            <Setter Property="Padding" Value="14,8" />
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="Background" Value="#1B2A3C" />
+            <Setter Property="BorderBrush" Value="#35506F" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Chrome"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              Margin="{TemplateBinding Padding}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="#244464" />
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="#38BDF8" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="#102033" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Chrome" Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="#123B36" />
+            <Setter Property="BorderBrush" Value="#28C7A4" />
+            <Setter Property="Foreground" Value="#DFFCF6" />
+        </Style>
+
+        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="#321820" />
+            <Setter Property="BorderBrush" Value="#EF4444" />
+            <Setter Property="Foreground" Value="#FEE2E2" />
+        </Style>
+
+        <Style TargetType="TextBox">
+            <Setter Property="MinHeight" Value="38" />
+            <Setter Property="Padding" Value="11,7" />
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="CaretBrush" Value="{StaticResource AccentBlueBrush}" />
+            <Setter Property="Background" Value="{StaticResource FieldBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="Chrome"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8">
+                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="#38BDF8" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="#4B6584" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="ComboBox">
+            <Setter Property="MinHeight" Value="38" />
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="Background" Value="{StaticResource FieldBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="Background" Value="#101722" />
+            <Setter Property="Padding" Value="10,7" />
+        </Style>
+
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#070A0F" Offset="0" />
+                <GradientStop Color="#101722" Offset="0.52" />
+                <GradientStop Color="#08131D" Offset="1" />
+            </LinearGradientBrush>
+        </Grid.Background>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="92" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="42" />
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Background="#101721" BorderBrush="#243044" BorderThickness="0,0,0,1" Effect="{StaticResource SoftShadow}">
+            <Grid Margin="24,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="320" />
+                </Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="Automatizacion industrial" Foreground="{StaticResource IndustrialYellowBrush}" FontSize="27" FontWeight="SemiBold" />
+                    <TextBlock Text="Reglas, condiciones, acciones y eventos SCADA/IoT" Foreground="{StaticResource MutedTextBrush}" Margin="0,5,0,0" />
+                </StackPanel>
+                <Border Grid.Column="1" Background="#0D141D" BorderBrush="#2B3B50" BorderThickness="1" CornerRadius="10" Padding="14" VerticalAlignment="Center">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border Width="42" Height="42" Background="#162A32" BorderBrush="#28C7A4" BorderThickness="1" CornerRadius="8">
+                            <TextBlock Text="PLC" Foreground="#BDF8ED" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Text="Motor de reglas" FontWeight="SemiBold" />
+                            <TextBlock Text="Validacion, persistencia y monitoreo activo" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1" Margin="18">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="220" />
+                <ColumnDefinition Width="18" />
+                <ColumnDefinition Width="390" />
+                <ColumnDefinition Width="18" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Background="#101721" BorderBrush="#243044" BorderThickness="1" CornerRadius="10" Padding="16" Effect="{StaticResource SoftShadow}">
+                <StackPanel>
+                    <TextBlock Text="SCADA RULES" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" FontSize="16" />
+                    <TextBlock Text="Panel lateral de control" Foreground="{StaticResource MutedTextBrush}" Margin="0,4,0,20" />
+                    <Border Background="#17212D" BorderBrush="#2B3B50" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,10">
+                        <StackPanel>
+                            <TextBlock Text="Dashboard" Foreground="{StaticResource DimTextBrush}" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding DashboardLabel}" FontSize="20" FontWeight="SemiBold" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </Border>
+                    <Border Background="#17212D" BorderBrush="#2B3B50" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,10">
+                        <StackPanel>
+                            <TextBlock Text="Reglas" Foreground="{StaticResource DimTextBrush}" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding RuleCountText}" FontSize="20" FontWeight="SemiBold" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </Border>
+                    <Border Background="#17212D" BorderBrush="#2B3B50" BorderThickness="1" CornerRadius="8" Padding="12">
+                        <StackPanel>
+                            <TextBlock Text="Modo" Foreground="{StaticResource DimTextBrush}" FontWeight="SemiBold" />
+                            <TextBlock Text="Dark industrial" FontSize="18" FontWeight="SemiBold" Margin="0,4,0,0" />
+                            <TextBlock Text="Contraste revisado para fondos oscuros" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="2" Background="{StaticResource PanelBrush}" BorderBrush="#243044" BorderThickness="1" CornerRadius="10" Padding="18" Effect="{StaticResource SoftShadow}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock Text="Configurar regla" FontSize="20" FontWeight="SemiBold" />
+                        <TextBlock Text="SI un sensor cumple una condicion, ENTONCES ejecuta una accion." Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" Margin="0,4,0,18" />
+
+                        <TextBlock Text="Nombre" Style="{StaticResource CaptionText}" />
+                        <TextBox x:Name="RuleNameTextBox" Text="Temperatura critica" Margin="0,0,0,13" />
+
+                        <TextBlock Text="Descripcion" Style="{StaticResource CaptionText}" />
+                        <TextBox x:Name="DescriptionTextBox" Text="Alerta por temperatura fuera de rango" Margin="0,0,0,13" />
+
+                        <TextBlock Text="Sensor TagData" Style="{StaticResource CaptionText}" />
+                        <ComboBox x:Name="TagComboBox" DisplayMemberPath="DisplayName" SelectedValuePath="IdTag" Margin="0,0,0,13" />
+
+                        <Grid Margin="0,0,0,13">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="118" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Operador" Style="{StaticResource CaptionText}" />
+                                <ComboBox x:Name="OperatorComboBox" SelectedIndex="0">
+                                    <ComboBoxItem Content="&gt;" />
+                                    <ComboBoxItem Content="&lt;" />
+                                    <ComboBoxItem Content="&gt;=" />
+                                    <ComboBoxItem Content="&lt;=" />
+                                    <ComboBoxItem Content="=" />
+                                    <ComboBoxItem Content="==" />
+                                    <ComboBoxItem Content="!=" />
+                                </ComboBox>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Valor umbral" Style="{StaticResource CaptionText}" />
+                                <TextBox x:Name="ThresholdTextBox" Text="90" />
+                            </StackPanel>
+                        </Grid>
+
+                        <TextBlock Text="Severidad" Style="{StaticResource CaptionText}" />
+                        <ComboBox x:Name="SeverityComboBox" SelectedIndex="0" Margin="0,0,0,13">
+                            <ComboBoxItem Content="Critica" />
+                            <ComboBoxItem Content="Advertencia" />
+                            <ComboBoxItem Content="Normal" />
+                        </ComboBox>
+
+                        <CheckBox x:Name="ActiveCheckBox" Content="Regla activa" IsChecked="True" Margin="0,0,0,18" />
+
+                        <UniformGrid Columns="2" Rows="2">
+                            <Button x:Name="CreateRuleButton" Content="Crear Regla" Click="CreateRuleButton_Click" Style="{StaticResource PrimaryButton}" Margin="0,0,8,8" />
+                            <Button x:Name="EditRuleButton" Content="Editar" Click="EditRuleButton_Click" Margin="8,0,0,8" IsEnabled="False" />
+                            <Button x:Name="ClearButton" Content="Limpiar" Click="ClearButton_Click" Margin="0,8,8,0" />
+                            <Button x:Name="DeleteRuleButton" Content="Eliminar" Click="DeleteRuleButton_Click" Style="{StaticResource DangerButton}" Margin="8,8,0,0" IsEnabled="False" />
+                        </UniformGrid>
+
+                        <Border x:Name="NotificationBorder" Background="#123B36" BorderBrush="#28C7A4" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,18,0,0" Opacity="0" Visibility="Collapsed">
+                            <TextBlock x:Name="NotificationTextBlock" Text="Regla guardada correctamente." Foreground="#DFFCF6" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <Border Grid.Column="4" Background="{StaticResource PanelBrush}" BorderBrush="#243044" BorderThickness="1" CornerRadius="10" Padding="18" Effect="{StaticResource SoftShadow}">
+                <DockPanel>
+                    <Grid DockPanel.Dock="Top" Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="Reglas del dashboard" FontSize="20" FontWeight="SemiBold" />
+                            <TextBlock Text="Tarjetas activas con sensor, condicion, severidad y estado" Foreground="{StaticResource MutedTextBrush}" Margin="0,4,0,0" />
+                        </StackPanel>
+                        <Border Grid.Column="1" Background="#0D141D" BorderBrush="#2B3B50" BorderThickness="1" CornerRadius="8" Padding="12,8" VerticalAlignment="Top">
+                            <TextBlock Text="{Binding ActiveRuleCountText}" Foreground="{StaticResource AccentBrush}" FontWeight="Bold" />
+                        </Border>
+                    </Grid>
+
+                    <ListBox x:Name="RulesListBox"
+                             ItemsSource="{Binding Rules}"
+                             SelectionChanged="RulesListBox_SelectionChanged"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             Foreground="{StaticResource TextBrush}"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Padding" Value="0" />
+                                <Setter Property="Margin" Value="0,0,0,10" />
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <Border x:Name="ItemChrome" Background="Transparent" CornerRadius="8">
+                                                <ContentPresenter />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="ItemChrome" Property="Background" Value="#122536" />
+                                                </Trigger>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="ItemChrome" Property="Background" Value="#14313B" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="#17212D" BorderBrush="#34465E" BorderThickness="1" CornerRadius="8" Padding="14">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="48" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="112" />
+                                        </Grid.ColumnDefinitions>
+                                        <Border Width="38" Height="38" Background="{Binding SeverityBadgeBrush}" BorderBrush="{Binding SeverityBrush}" BorderThickness="1" CornerRadius="8" VerticalAlignment="Top">
+                                            <TextBlock Text="{Binding SeverityIcon}" Foreground="{Binding SeverityBrush}" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Text="{Binding Nombre}" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Descripcion}" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" Margin="0,4,0,8" />
+                                            <WrapPanel>
+                                                <Border Background="#0D141D" BorderBrush="#2B3B50" BorderThickness="1" CornerRadius="7" Padding="8,5" Margin="0,0,8,6">
+                                                    <TextBlock Text="{Binding SensorText}" Foreground="#D7E2EC" FontWeight="SemiBold" />
+                                                </Border>
+                                                <Border Background="#0D141D" BorderBrush="#2B3B50" BorderThickness="1" CornerRadius="7" Padding="8,5" Margin="0,0,8,6">
+                                                    <TextBlock Text="{Binding ConditionText}" Foreground="#D7E2EC" FontWeight="SemiBold" />
+                                                </Border>
+                                            </WrapPanel>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2" HorizontalAlignment="Right">
+                                            <Border Background="{Binding SeverityBadgeBrush}" BorderBrush="{Binding SeverityBrush}" BorderThickness="1" CornerRadius="7" Padding="8,5" HorizontalAlignment="Right">
+                                                <TextBlock Text="{Binding Severidad}" Foreground="{Binding SeverityBrush}" FontWeight="Bold" />
+                                            </Border>
+                                            <TextBlock Text="{Binding EstadoTexto}" Foreground="{Binding StatusBrush}" FontWeight="Bold" HorizontalAlignment="Right" Margin="0,12,0,0" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+        </Grid>
+
+        <Border Grid.Row="2" Background="#101721" BorderBrush="#243044" BorderThickness="0,1,0,0">
+            <TextBlock x:Name="StatusTextBlock" Text="Listo" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" Margin="18,0" />
+        </Border>
+    </Grid>
+</Window>

@@ -110,7 +110,7 @@
             </LinearGradientBrush>
         </Grid.Background>
         <Grid.RowDefinitions>
-            <RowDefinition Height="68" />
+            <RowDefinition Height="106" />
             <RowDefinition Height="*" />
             <RowDefinition Height="34" />
         </Grid.RowDefinitions>
@@ -118,30 +118,38 @@
         <Border Grid.Row="0" Background="#111721" BorderBrush="#243044" BorderThickness="0,0,0,1" Effect="{StaticResource SoftShadow}">
             <Grid Margin="18,0">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="260" />
+                    <ColumnDefinition Width="300" />
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="330" />
                 </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="54" />
+                    <RowDefinition Height="42" />
+                </Grid.RowDefinitions>
 
-                <StackPanel VerticalAlignment="Center">
+                <StackPanel Grid.RowSpan="2" VerticalAlignment="Center">
                     <TextBlock Text="VisualIoT SCADA" FontSize="24" FontWeight="SemiBold" Foreground="{StaticResource IndustrialYellowBrush}" />
                     <TextBlock x:Name="ProjectNameHeaderTextBlock" Text="Linea de jugos naturales" Foreground="{StaticResource MutedTextBrush}" />
                 </StackPanel>
 
-                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <StackPanel Grid.Column="1" Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Left">
                     <TextBlock Text="Broker" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="Bold" />
-                    <TextBox x:Name="BrokerTextBox" Text="broker.hivemq.com" Width="190" Margin="0,0,10,0" />
+                    <TextBox x:Name="BrokerTextBox" Text="broker.hivemq.com" Width="210" Margin="0,0,14,0" />
                     <TextBlock Text="Puerto" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="Bold" />
-                    <TextBox x:Name="PortTextBox" Text="1883" Width="70" Margin="0,0,10,0" />
+                    <TextBox x:Name="PortTextBox" Text="1883" Width="82" Margin="0,0,14,0" />
                     <TextBlock Text="Topic" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="Bold" />
-                    <TextBox x:Name="TopicTextBox" Text="visualiot/#" Width="145" Margin="0,0,10,0" />
-                    <Button x:Name="ConnectButton" Content="Conectar" Click="ConnectButton_Click" Width="86" />
-                    <Button x:Name="SimulationButton" Content="Detener simulacion" Click="SimulationButton_Click" Margin="8,0,0,0" Width="138" />
-                    <Button x:Name="NewDashboardButton" Content="Nuevo " Click="NewDashboardButton_Click" Margin="8,0,0,0" />
-                    <Button x:Name="SaveDashboardButton" Content="Guardar Dashboard" Click="SaveDashboardButton_Click" Margin="8,0,0,0" Width="150" />
+                    <TextBox x:Name="TopicTextBox" Text="visualiot/#" Width="180" Margin="0,0,14,0" />
                 </StackPanel>
 
-                <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
+                <WrapPanel Grid.Column="1" Grid.Row="1" VerticalAlignment="Top" HorizontalAlignment="Left">
+                    <Button x:Name="ConnectButton" Content="Conectar" Click="ConnectButton_Click" Width="94" Margin="0,0,8,0" />
+                    <Button x:Name="SimulationButton" Content="Iniciar simulacion" Click="SimulationButton_Click" Width="150" Margin="0,0,8,0" />
+                    <Button x:Name="NewDashboardButton" Content="Nuevo" Click="NewDashboardButton_Click" Width="96" Margin="0,0,8,0" />
+                    <Button x:Name="SaveDashboardButton" Content="Guardar Dashboard" Click="SaveDashboardButton_Click" Width="166" Margin="0,0,8,0" />
+                    <Button x:Name="AutomationButton" Content="Automatizacion" Click="AutomationButton_Click" Width="144" Margin="0,0,8,0" />
+                </WrapPanel>
+
+                <StackPanel Grid.Column="2" Grid.RowSpan="2" VerticalAlignment="Center" HorizontalAlignment="Right">
                     <TextBlock x:Name="DashboardNameHeaderTextBlock" Text="Dashboard principal" HorizontalAlignment="Right" FontSize="18" FontWeight="SemiBold" />
                     <TextBlock x:Name="SelectedMotorHeaderTextBlock" Text="Motor: MOTOR_01" Foreground="#C8D3DF" HorizontalAlignment="Right" FontWeight="SemiBold" />
                     <TextBlock x:Name="ConnectionStatusTextBlock" Text="MQTT desconectado" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Right" FontWeight="Bold" />
@@ -151,9 +159,9 @@
 
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="250" />
+                <ColumnDefinition Width="230" />
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="330" />
+                <ColumnDefinition Width="270" />
             </Grid.ColumnDefinitions>
 
             <Border Grid.Column="0" Background="{StaticResource PanelBrush}" BorderBrush="#243044" BorderThickness="0,0,1,0" Effect="{StaticResource SoftShadow}">
@@ -260,7 +268,7 @@
                                 Drop="DashboardCanvas_Drop"
                                 DragOver="DashboardCanvas_DragOver"
                                 MouseMove="DashboardCanvas_MouseMove"
-                                MouseLeftButtonUp="DashboardCanvas_MouseLeftButtonUp" Width="800">
+                                MouseLeftButtonUp="DashboardCanvas_MouseLeftButtonUp">
                             <Canvas.Background>
                                 <DrawingBrush TileMode="Tile" Viewport="0,0,88,88" ViewportUnits="Absolute">
                                     <DrawingBrush.Drawing>
@@ -343,6 +351,27 @@
                        Foreground="{StaticResource MutedTextBrush}"
                        VerticalAlignment="Center"
                        Margin="14,0" />
+        </Border>
+
+        <Border x:Name="AlertPopup"
+                Grid.RowSpan="3"
+                Width="420"
+                MinHeight="88"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Margin="0,86,28,0"
+                Background="#2A1111"
+                BorderBrush="#EF4444"
+                BorderThickness="1"
+                CornerRadius="12"
+                Padding="16"
+                Opacity="0"
+                Visibility="Collapsed"
+                Effect="{StaticResource SoftShadow}">
+            <StackPanel>
+                <TextBlock x:Name="AlertTitleTextBlock" Text="ALERTA INDUSTRIAL" FontSize="15" FontWeight="Bold" Foreground="#FEE2E2" />
+                <TextBlock x:Name="AlertMessageTextBlock" Text="Evento de automatizacion" TextWrapping="Wrap" Foreground="#FFE4E6" Margin="0,7,0,0" />
+            </StackPanel>
         </Border>
 
     </Grid>
