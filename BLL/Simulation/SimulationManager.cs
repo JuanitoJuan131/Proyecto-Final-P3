@@ -39,6 +39,11 @@ namespace BLL.Simulation
             get { return _tags; }
         }
 
+        public bool MqttTelemetryActive
+        {
+            get { return _mqttTelemetryActive; }
+        }
+
         public void StartSimulation()
         {
             Engine.Start();
@@ -65,6 +70,22 @@ namespace BLL.Simulation
             await _mqtt.ConnectAsync(server, port);
             await _mqtt.SubscribeAsync(topic);
             UseMqttTelemetry(true);
+        }
+
+        public async Task DisconnectMqttAsync()
+        {
+            UseMqttTelemetry(false);
+            await _mqtt.DisconnectAsync();
+        }
+
+        public void ShutdownMotor(string motorId)
+        {
+            Engine.ShutdownMotor(motorId);
+        }
+
+        public void RestartMotor(string motorId)
+        {
+            Engine.RestartMotor(motorId);
         }
 
         public object GetTagValue(string tag)

@@ -45,6 +45,59 @@ namespace BLL.Simulation
             }
         }
 
+        public void ShutdownMotor(string motorId)
+        {
+            var motor = FindMotor(motorId);
+            if (motor == null)
+            {
+                return;
+            }
+
+            motor.Estado = EstadoMotor.Apagado;
+            motor.Rpm = 0;
+            motor.Corriente = 0;
+            motor.Torque = 0;
+            motor.AlarmaActiva = false;
+            motor.MensajeAlarma = string.Empty;
+            motor.UltimaActualizacion = DateTime.Now;
+            Dispatcher.Dispatch(_tagValueGenerator.Generate(motor));
+        }
+
+        public void RestartMotor(string motorId)
+        {
+            var motor = FindMotor(motorId);
+            if (motor == null)
+            {
+                return;
+            }
+
+            motor.Estado = EstadoMotor.Arrancando;
+            motor.Rpm = 0;
+            motor.Corriente = 0;
+            motor.AlarmaActiva = false;
+            motor.MensajeAlarma = string.Empty;
+            motor.UltimaActualizacion = DateTime.Now;
+            Dispatcher.Dispatch(_tagValueGenerator.Generate(motor));
+        }
+
+        private TelemetriaMotor FindMotor(string motorId)
+        {
+            if (string.IsNullOrWhiteSpace(motorId))
+            {
+                return null;
+            }
+
+            foreach (var motor in _motors)
+            {
+                if (string.Equals(motor.Id, motorId, StringComparison.OrdinalIgnoreCase))
+                {
+                    return motor;
+                }
+            }
+
+            return null;
+        }
+
         private async Task RunAsync(CancellationToken token)
         {
             while (!token.IsCancellationRequested)

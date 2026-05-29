@@ -31,12 +31,19 @@ namespace GUI
         private readonly Dictionary<string, MotorCardViewModel> _motorMap = new Dictionary<string, MotorCardViewModel>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, TagRowViewModel> _tagRows = new Dictionary<string, TagRowViewModel>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, DateTime> _lastAutomationEvaluation = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, List<DashboardWidgetLayout>> _motorLayouts = new Dictionary<string, List<DashboardWidgetLayout>>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, ObservableCollection<AlarmEventViewModel>> _alarmHistoryByMotor = new Dictionary<string, ObservableCollection<AlarmEventViewModel>>(StringComparer.OrdinalIgnoreCase);
         private readonly List<DashboardWidgetViewModel> _widgets = new List<DashboardWidgetViewModel>();
         private DashboardWidgetViewModel _draggingWidget;
         private DashboardWidgetViewModel _selectedWidget;
         private Point _dragOffset;
         private bool _wasDragged;
         private bool _simulationRunning = true;
+        private bool _autoShutdownOnCritical = true;
+        private bool _mqttReconnectPending;
+        private string _lastMqttServer;
+        private int _lastMqttPort;
+        private string _lastMqttTopic;
         private int _mqttMessageCount;
         private DashboardStartupOptions _startupOptions;
         private string _selectedMotorId;
@@ -127,15 +134,19 @@ namespace GUI
                 _simulationManager.UseMqttTelemetry(true);
                 _simulationManager.ClearTags();
 
-                await _simulationManager.ConnectMqttAsync(BrokerTextBox.Text.Trim(), port, TopicTextBox.Text.Trim());
+                _lastMqttServer = BrokerTextBox.Text.Trim();
+                _lastMqttPort = port;
+                _lastMqttTopic = TopicTextBox.Text.Trim();
+
+                await _simulationManager.ConnectMqttAsync(_lastMqttServer, _lastMqttPort, _lastMqttTopic);
                 if (wasSimulationRunning)
                 {
                     AddEvent("Simulacion local pausada: usando telemetria MQTT del ESP32");
                 }
 
-                StatusBarTextBlock.Text = "Suscrito a " + TopicTextBox.Text.Trim();
-                AddEvent("MQTT conectado a " + BrokerTextBox.Text.Trim());
-                AddEvent("Esperando datos del ESP32 en " + TopicTextBox.Text.Trim());
+                StatusBarTextBlock.Text = "Suscrito a " + _lastMqttTopic;
+                AddEvent("MQTT conectado a " + _lastMqttServer);
+                AddEvent("Esperando datos del ESP32 en " + _lastMqttTopic);
             }
             catch (Exception ex)
             {
@@ -182,6 +193,48 @@ namespace GUI
                 SimulationButton.Content = "Detener simulacion";
                 AddEvent("Simulacion reanudada");
             }
+        }
+
+        private void ShutdownMotorButton_Click(object sender, RoutedEventArgs e)
+        {
+            ShutdownMotor(_selectedMotorId, "Apagado manual desde SCADA");
+        }
+
+        private void RestartMotorButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(_selectedMotorId))
+            {
+                return;
+            }
+
+            if (!_simulationManager.MqttTelemetryActive && !_simulationRunning)
+            {
+                _simulationManager.StartSimulation();
+                _simulationRunning = true;
+                SimulationButton.Content = "Detener simulacion";
+            }
+
+            _simulationManager.RestartMotor(_selectedMotorId);
+            SetMotorRuntimeState(_selectedMotorId, "Arrancando", "Reinicio solicitado");
+            RegisterAlarm(_selectedMotorId + ".Alarma", "Reinicio manual del motor", "Normal", false);
+            AddEvent("Reinicio solicitado para " + _selectedMotorId);
+        }
+
+        private async void StopMotorInputButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_simulationManager.MqttTelemetryActive)
+            {
+                await _simulationManager.DisconnectMqttAsync();
+                ConnectionStatusTextBlock.Text = "MQTT desconectado";
+                ConnectionStatusTextBlock.Foreground = new SolidColorBrush(Color.FromRgb(182, 193, 208));
+                AddEvent("Recepcion MQTT desconectada para control seguro");
+                return;
+            }
+
+            _simulationManager.StopSimulation();
+            _simulationRunning = false;
+            SimulationButton.Content = "Iniciar simulacion";
+            AddEvent("Simulacion detenida desde control de motor");
         }
 
         private void NewDashboardButton_Click(object sender, RoutedEventArgs e)
@@ -287,8 +340,7 @@ namespace GUI
             var motorId = border != null ? border.Tag as string : null;
             if (!string.IsNullOrWhiteSpace(motorId))
             {
-                SetSelectedMotor(motorId);
-                AddEvent("Motor seleccionado para edicion: " + motorId);
+                SwitchMotorTab(motorId);
             }
         }
 
@@ -358,7 +410,48 @@ namespace GUI
                 ConnectionStatusTextBlock.Foreground = connected
                     ? new SolidColorBrush(Color.FromRgb(40, 199, 164))
                     : new SolidColorBrush(Color.FromRgb(143, 160, 179));
+
+                if (connected)
+                {
+                    _mqttReconnectPending = false;
+                }
+                else if (_simulationManager.MqttTelemetryActive && !_mqttReconnectPending)
+                {
+                    ScheduleMqttReconnect();
+                }
             });
+        }
+
+        private void ScheduleMqttReconnect()
+        {
+            if (string.IsNullOrWhiteSpace(_lastMqttServer) || string.IsNullOrWhiteSpace(_lastMqttTopic))
+            {
+                return;
+            }
+
+            _mqttReconnectPending = true;
+            AddEvent("MQTT desconectado: reconexion automatica en 5 s");
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+            timer.Tick += async (sender, args) =>
+            {
+                timer.Stop();
+                try
+                {
+                    await _simulationManager.ConnectMqttAsync(_lastMqttServer, _lastMqttPort, _lastMqttTopic);
+                    _mqttReconnectPending = false;
+                    AddEvent("MQTT reconectado automaticamente");
+                }
+                catch (Exception ex)
+                {
+                    _mqttReconnectPending = false;
+                    AddEvent("Fallo de reconexion MQTT: " + ex.Message);
+                    if (_simulationManager.MqttTelemetryActive)
+                    {
+                        ScheduleMqttReconnect();
+                    }
+                }
+            };
+            timer.Start();
         }
 
         private void SimulationManager_MqttMessageReceived(string topic, string payload)
@@ -382,8 +475,14 @@ namespace GUI
         {
             Dispatcher.Invoke(() =>
             {
-                UpdateTagGrid(tag, value);
                 UpdateMotorCards(tag, value);
+
+                if (!IsSelectedMotorTag(tag))
+                {
+                    return;
+                }
+
+                UpdateTagGrid(tag, value);
                 UpdateDashboardWidgets(tag, value);
                 EvaluateAutomation(tag, value);
             });
@@ -409,6 +508,7 @@ namespace GUI
                 foreach (var result in _automationService.Evaluar(_currentDashboardId, tag, number))
                 {
                     AddEvent("Automatizacion: " + result.Description);
+                    RegisterAlarm(result.Tag, result.Description, result.Severity, true);
                     ApplyAutomationVisualState(result);
                     ShowAutomationAlert(result);
                 }
@@ -458,6 +558,186 @@ namespace GUI
                 AlertPopup.BeginAnimation(OpacityProperty, fade);
             };
             timer.Start();
+        }
+
+        private void RegisterAlarm(string tag, string message, string severity, bool notify)
+        {
+            if (string.IsNullOrWhiteSpace(message) || string.Equals(message, "Sin alarmas", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            var motorId = MotorIdFromTag(tag);
+            if (string.IsNullOrWhiteSpace(motorId))
+            {
+                motorId = _selectedMotorId ?? "MOTOR_01";
+            }
+
+            var alarm = new AlarmEventViewModel
+            {
+                Time = DateTime.Now,
+                MotorId = motorId,
+                Severity = string.IsNullOrWhiteSpace(severity) ? "Normal" : severity,
+                Message = message,
+                Tag = tag,
+                ColorBrush = new SolidColorBrush(ColorForSeverity(severity)),
+                Icon = IconForSeverity(severity)
+            };
+
+            var history = GetAlarmHistory(motorId);
+            if (history.Count > 0 && history[0].Message == alarm.Message && DateTime.Now - history[0].Time < TimeSpan.FromSeconds(2))
+            {
+                return;
+            }
+
+            history.Insert(0, alarm);
+            if (history.Count > 50)
+            {
+                history.RemoveAt(history.Count - 1);
+            }
+
+            foreach (var widget in _widgets.Where(w => w.Type == TipoWidget.PanelAlarmas && string.Equals(MotorIdFromTag(w.Tag), motorId, StringComparison.OrdinalIgnoreCase)))
+            {
+                widget.AlarmItems = history;
+                RenderAlarmList(widget);
+                if (widget.ValueBlock != null)
+                {
+                    widget.ValueBlock.Text = alarm.Severity.ToUpperInvariant() + " - " + alarm.Message;
+                    widget.ValueBlock.Foreground = alarm.ColorBrush;
+                }
+            }
+
+            if (notify && string.Equals(motorId, _selectedMotorId, StringComparison.OrdinalIgnoreCase))
+            {
+                AlertPopup.Visibility = Visibility.Visible;
+                AlertPopup.BorderBrush = alarm.ColorBrush;
+                AlertTitleTextBlock.Text = alarm.Severity.ToUpperInvariant() + " - " + motorId;
+                AlertMessageTextBlock.Text = alarm.Message;
+                AlertPopup.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(160))
+                {
+                    EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+                });
+            }
+
+            if (IsCriticalSeverity(severity) && _autoShutdownOnCritical)
+            {
+                ShutdownMotor(motorId, "Paro automatico por alarma critica");
+            }
+        }
+
+        private ObservableCollection<AlarmEventViewModel> GetAlarmHistory(string motorId)
+        {
+            motorId = string.IsNullOrWhiteSpace(motorId) ? (_selectedMotorId ?? "MOTOR_01") : motorId;
+            ObservableCollection<AlarmEventViewModel> history;
+            if (!_alarmHistoryByMotor.TryGetValue(motorId, out history))
+            {
+                history = new ObservableCollection<AlarmEventViewModel>();
+                _alarmHistoryByMotor[motorId] = history;
+            }
+
+            return history;
+        }
+
+        private static void RenderAlarmList(DashboardWidgetViewModel widget)
+        {
+            if (widget == null || widget.AlarmList == null)
+            {
+                return;
+            }
+
+            widget.AlarmList.Items.Clear();
+            var items = widget.AlarmItems ?? new ObservableCollection<AlarmEventViewModel>();
+            if (items.Count == 0)
+            {
+                widget.AlarmList.Items.Add(new TextBlock
+                {
+                    Text = "Sin alarmas activas",
+                    Foreground = new SolidColorBrush(Color.FromRgb(45, 212, 191)),
+                    Margin = new Thickness(6)
+                });
+                return;
+            }
+
+            foreach (var alarm in items.Take(8))
+            {
+                var row = new Border
+                {
+                    Background = new SolidColorBrush(Color.FromRgb(10, 20, 32)),
+                    BorderBrush = alarm.ColorBrush,
+                    BorderThickness = new Thickness(1, 0, 0, 0),
+                    CornerRadius = new CornerRadius(5),
+                    Padding = new Thickness(8, 6, 8, 6),
+                    Margin = new Thickness(0, 0, 0, 6)
+                };
+                row.Child = new StackPanel
+                {
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = alarm.Icon + " " + alarm.Time.ToString("HH:mm:ss", CultureInfo.InvariantCulture) + "  " + alarm.Severity.ToUpperInvariant(),
+                            Foreground = alarm.ColorBrush,
+                            FontSize = 10.5,
+                            FontWeight = FontWeights.Bold
+                        },
+                        new TextBlock
+                        {
+                            Text = alarm.Message,
+                            Foreground = new SolidColorBrush(Color.FromRgb(222, 234, 245)),
+                            TextWrapping = TextWrapping.Wrap,
+                            Margin = new Thickness(0, 3, 0, 0)
+                        }
+                    }
+                };
+                widget.AlarmList.Items.Add(row);
+            }
+        }
+
+        private void ShutdownMotor(string motorId, string reason)
+        {
+            if (string.IsNullOrWhiteSpace(motorId))
+            {
+                return;
+            }
+
+            if (_simulationManager.MqttTelemetryActive)
+            {
+                _simulationManager.DisconnectMqttAsync();
+                ConnectionStatusTextBlock.Text = "MQTT desconectado";
+                ConnectionStatusTextBlock.Foreground = new SolidColorBrush(Color.FromRgb(182, 193, 208));
+            }
+            else if (_simulationRunning)
+            {
+                _simulationManager.StopSimulation();
+                _simulationRunning = false;
+                SimulationButton.Content = "Iniciar simulacion";
+            }
+
+            _simulationManager.ShutdownMotor(motorId);
+            SetMotorRuntimeState(motorId, "Apagado", reason);
+            AddEvent(reason + ": " + motorId);
+        }
+
+        private void SetMotorRuntimeState(string motorId, string state, string detail)
+        {
+            MotorCardViewModel motor;
+            if (_motorMap.TryGetValue(motorId, out motor))
+            {
+                motor.StateText = state;
+                motor.RpmText = state == "Apagado" ? "0.0" : motor.RpmText;
+            }
+
+            foreach (var widget in _widgets.Where(w => string.Equals(MotorIdFromTag(w.Tag), motorId, StringComparison.OrdinalIgnoreCase)))
+            {
+                if (widget.Container != null)
+                {
+                    widget.Container.BorderBrush = state == "Apagado"
+                        ? new SolidColorBrush(Color.FromRgb(239, 68, 68))
+                        : new SolidColorBrush(Color.FromRgb(40, 199, 164));
+                }
+            }
+
+            StatusBarTextBlock.Text = detail + " - " + motorId;
         }
 
         private void SimulationManager_TagsCleared()
@@ -574,12 +854,101 @@ namespace GUI
             }
         }
 
+        private void SwitchMotorTab(string motorId)
+        {
+            if (string.IsNullOrWhiteSpace(motorId)
+                || string.Equals(motorId, _selectedMotorId, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            SaveCurrentMotorLayout();
+            SetSelectedMotor(motorId);
+            LoadMotorWorkspace(motorId);
+            RefreshSelectedMotorTags();
+            AddEvent("Pestana de motor activa: " + motorId);
+        }
+
+        private void SaveCurrentMotorLayout()
+        {
+            if (string.IsNullOrWhiteSpace(_selectedMotorId))
+            {
+                return;
+            }
+
+            _motorLayouts[_selectedMotorId] = _widgets.Select(w =>
+            {
+                var left = w.Container == null ? 0 : Canvas.GetLeft(w.Container);
+                var top = w.Container == null ? 0 : Canvas.GetTop(w.Container);
+                return new DashboardWidgetLayout
+                {
+                    tipo = w.Type.ToString(),
+                    x = double.IsNaN(left) ? 0 : left,
+                    y = double.IsNaN(top) ? 0 : top,
+                    width = w.Container == null ? 0 : w.Container.Width,
+                    height = w.Container == null ? 0 : w.Container.Height,
+                    tag = w.Tag,
+                    sensor = w.Tag,
+                    titulo = w.Title,
+                    color = w.Color
+                };
+            }).ToList();
+        }
+
+        private void LoadMotorWorkspace(string motorId)
+        {
+            DashboardCanvas.Children.Clear();
+            _widgets.Clear();
+            _selectedWidget = null;
+            EmptyDashboardText.Visibility = Visibility.Visible;
+
+            List<DashboardWidgetLayout> saved;
+            if (_motorLayouts.TryGetValue(motorId, out saved) && saved.Count > 0)
+            {
+                foreach (var item in saved)
+                {
+                    AddWidget(
+                        WidgetTypeFromLayout(item.tipo),
+                        item.x,
+                        item.y,
+                        string.IsNullOrWhiteSpace(item.tag) ? item.sensor : item.tag,
+                        string.IsNullOrWhiteSpace(item.titulo) ? DefaultTitleFor(WidgetTypeFromLayout(item.tipo)) : item.titulo,
+                        item.width > 0 ? item.width : CellSize * 3,
+                        item.height > 0 ? item.height : CellSize * 2,
+                        item.color);
+                }
+            }
+            else
+            {
+                AddDefaultWidgets(motorId);
+            }
+
+            foreach (var widget in _widgets)
+            {
+                ApplyCurrentValue(widget);
+            }
+        }
+
+        private void RefreshSelectedMotorTags()
+        {
+            _tagRows.Clear();
+            Tags.Clear();
+
+            foreach (var tag in _simulationManager.Tags)
+            {
+                if (IsSelectedMotorTag(tag.Key))
+                {
+                    UpdateTagGrid(tag.Key, tag.Value);
+                }
+            }
+        }
+
         private void AddDefaultWidgets(string motorId)
         {
             motorId = string.IsNullOrWhiteSpace(motorId) ? "MOTOR_01" : motorId;
             AddWidget(TipoWidget.Medidor, 0, 0, motorId + ".RPM", "Velocidad RPM");
             AddWidget(TipoWidget.Numerico, 264, 0, motorId + ".Temperatura", "Temperatura");
-            AddWidget(TipoWidget.Numerico, 528, 0, motorId + ".Vibracion", "Vibracion");
+            AddWidget(TipoWidget.Tanque, 528, 0, motorId + ".Nivel", "Nivel de tanque");
             AddWidget(TipoWidget.Tendencia, 0, 264, motorId + ".RPM", "Historico RPM");
             AddWidget(TipoWidget.PanelAlarmas, 352, 264, motorId + ".Alarma", "Alarmas");
         }
@@ -882,20 +1251,115 @@ namespace GUI
 
         private UIElement BuildTankWidget(DashboardWidgetViewModel widget)
         {
-            var root = BuildMetricWidget(widget) as Grid;
-            var bar = new ProgressBar
+            var root = new Grid();
+            root.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            root.ColumnDefinitions.Add(new ColumnDefinition());
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            root.RowDefinitions.Add(new RowDefinition());
+
+            var title = new TextBlock
             {
-                Minimum = 0,
-                Maximum = 100,
-                Height = 10,
-                Margin = new Thickness(0, 92, 0, 0),
-                VerticalAlignment = VerticalAlignment.Top,
-                Foreground = widget.AccentBrush,
-                Background = new SolidColorBrush(Color.FromRgb(43, 58, 78))
+                Text = widget.Title.ToUpperInvariant(),
+                Foreground = new SolidColorBrush(Color.FromRgb(158, 200, 234)),
+                FontSize = 12,
+                FontWeight = FontWeights.SemiBold
             };
-            Grid.SetColumnSpan(bar, 2);
-            root.Children.Add(bar);
-            widget.Progress = bar;
+            Grid.SetColumnSpan(title, 2);
+            root.Children.Add(title);
+
+            var tankShell = new Border
+            {
+                Width = 96,
+                Height = 118,
+                CornerRadius = new CornerRadius(18, 18, 10, 10),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(91, 123, 150)),
+                BorderThickness = new Thickness(2),
+                Background = new LinearGradientBrush(Color.FromRgb(13, 24, 37), Color.FromRgb(23, 40, 56), new Point(0, 0), new Point(1, 1)),
+                ClipToBounds = true,
+                Margin = new Thickness(0, 12, 16, 0),
+                Effect = new DropShadowEffect
+                {
+                    BlurRadius = 14,
+                    Direction = 0,
+                    ShadowDepth = 0,
+                    Opacity = 0.22,
+                    Color = Color.FromRgb(79, 163, 255)
+                }
+            };
+
+            var tankGrid = new Grid();
+            var liquid = new Border
+            {
+                Height = 0,
+                VerticalAlignment = VerticalAlignment.Bottom,
+                CornerRadius = new CornerRadius(12, 12, 7, 7),
+                Background = BuildLiquidBrush(50)
+            };
+            tankGrid.Children.Add(liquid);
+            tankGrid.Children.Add(new Rectangle
+            {
+                Fill = new LinearGradientBrush(Color.FromArgb(76, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), new Point(0, 0), new Point(1, 0)),
+                Width = 26,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(13, 8, 0, 8),
+                RadiusX = 8,
+                RadiusY = 8,
+                IsHitTestVisible = false
+            });
+            tankShell.Child = tankGrid;
+
+            Grid.SetRow(tankShell, 1);
+            root.Children.Add(tankShell);
+
+            var info = new StackPanel { Margin = new Thickness(0, 16, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+            var value = new TextBlock
+            {
+                Text = widget.ValueText,
+                FontSize = 30,
+                FontFamily = new FontFamily("Consolas"),
+                FontWeight = FontWeights.Bold,
+                Foreground = Brushes.White
+            };
+            info.Children.Add(value);
+            info.Children.Add(new TextBlock
+            {
+                Text = widget.Unit,
+                Foreground = new SolidColorBrush(Color.FromRgb(165, 188, 209)),
+                FontWeight = FontWeights.SemiBold,
+                Margin = new Thickness(0, -2, 0, 8)
+            });
+            info.Children.Add(new Border
+            {
+                Background = new SolidColorBrush(Color.FromRgb(9, 24, 40)),
+                BorderBrush = widget.AccentBrush,
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(12),
+                Padding = new Thickness(10, 4, 10, 4),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Child = new TextBlock
+                {
+                    Text = "Nivel activo",
+                    Foreground = widget.AccentBrush,
+                    FontSize = 11,
+                    FontWeight = FontWeights.Bold
+                }
+            });
+            info.Children.Add(new TextBlock
+            {
+                Text = widget.Tag,
+                Foreground = new SolidColorBrush(Color.FromRgb(93, 120, 148)),
+                FontSize = 11,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                Margin = new Thickness(0, 10, 0, 0)
+            });
+
+            Grid.SetColumn(info, 1);
+            Grid.SetRow(info, 1);
+            root.Children.Add(info);
+
+            widget.ValueBlock = value;
+            widget.TankLiquid = liquid;
+            widget.TankShell = tankShell;
             return root;
         }
 
@@ -968,31 +1432,49 @@ namespace GUI
 
         private UIElement BuildAlarmWidget(DashboardWidgetViewModel widget)
         {
-            var root = new StackPanel();
-            root.Children.Add(new TextBlock
+            var root = new Grid();
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            root.RowDefinitions.Add(new RowDefinition());
+
+            var title = new TextBlock
             {
                 Text = widget.Title.ToUpperInvariant(),
                 Foreground = new SolidColorBrush(Color.FromRgb(158, 200, 234)),
                 FontSize = 13,
                 FontWeight = FontWeights.Bold
-            });
+            };
+            root.Children.Add(title);
+
             var value = new TextBlock
             {
                 Text = "Sin alarmas",
-                Foreground = new SolidColorBrush(Color.FromRgb(56, 189, 248)),
-                FontSize = 15,
-                FontWeight = FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Color.FromRgb(45, 212, 191)),
+                FontSize = 12,
+                FontWeight = FontWeights.Bold,
                 TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(0, 16, 0, 0)
+                Margin = new Thickness(0, 8, 0, 8)
             };
+            Grid.SetRow(value, 1);
             root.Children.Add(value);
-            root.Children.Add(new TextBlock
+
+            var list = new ListBox
             {
-                Text = "Registro en tiempo real",
-                Foreground = new SolidColorBrush(Color.FromRgb(100, 116, 139)),
-                Margin = new Thickness(0, 8, 0, 0)
-            });
+                Background = new SolidColorBrush(Color.FromRgb(7, 14, 24)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(26, 42, 58)),
+                BorderThickness = new Thickness(1),
+                Foreground = Brushes.White,
+                FontSize = 11,
+                Padding = new Thickness(4),
+                HorizontalContentAlignment = HorizontalAlignment.Stretch
+            };
+            Grid.SetRow(list, 2);
+            root.Children.Add(list);
+
             widget.ValueBlock = value;
+            widget.AlarmList = list;
+            widget.AlarmItems = GetAlarmHistory(MotorIdFromTag(widget.Tag));
+            RenderAlarmList(widget);
             return root;
         }
 
@@ -1127,7 +1609,7 @@ namespace GUI
         {
             foreach (var widget in _widgets.Where(w => TagsMatch(w.Tag, tag) || w.Type == TipoWidget.PanelAlarmas))
             {
-                if (widget.Type == TipoWidget.PanelAlarmas && !EndsWithTag(tag, ".Alarma"))
+                if (widget.Type == TipoWidget.PanelAlarmas && (!EndsWithTag(tag, ".Alarma") || !IsWidgetForTagMotor(widget, tag)))
                 {
                     continue;
                 }
@@ -1151,11 +1633,16 @@ namespace GUI
                     widget.Progress.Value = Math.Max(0, Math.Min(100, number));
                 }
 
+                if (widget.TankLiquid != null)
+                {
+                    UpdateTankVisual(widget, number);
+                }
+
                 if (widget.Needle != null)
                 {
                     var max = EndsWithTag(widget.Tag, ".RPM") ? 2000 : 100;
                     var angle = -55 + Math.Max(0, Math.Min(1, number / max)) * 110;
-                    widget.Needle.RenderTransform = new RotateTransform(angle, 80, 80);
+                    widget.Needle.RenderTransform = new RotateTransform(angle, 86, 82);
                 }
 
                 if (widget.TrendLine != null)
@@ -1166,6 +1653,12 @@ namespace GUI
                         widget.History.RemoveAt(0);
                     }
                     RedrawTrend(widget);
+                }
+
+                if (widget.Type == TipoWidget.PanelAlarmas && text != "Sin alarmas")
+                {
+                    var severity = SeverityForAlarmText(text);
+                    RegisterAlarm(tag, text, severity, true);
                 }
             }
         }
@@ -1188,14 +1681,25 @@ namespace GUI
                     widget.Progress.Value = 0;
                 }
 
+                if (widget.TankLiquid != null)
+                {
+                    widget.TankLiquid.BeginAnimation(HeightProperty, null);
+                    widget.TankLiquid.Height = 0;
+                }
+
                 if (widget.Needle != null)
                 {
-                    widget.Needle.RenderTransform = new RotateTransform(-55, 80, 80);
+                    widget.Needle.RenderTransform = new RotateTransform(-55, 86, 82);
                 }
 
                 if (widget.TrendLine != null)
                 {
                     widget.TrendLine.Points = new PointCollection();
+                }
+
+                if (widget.AlarmList != null)
+                {
+                    RenderAlarmList(widget);
                 }
             }
         }
@@ -1461,6 +1965,78 @@ namespace GUI
             return Color.FromRgb(251, 191, 36);
         }
 
+        private static Brush BuildLiquidBrush(double level)
+        {
+            var color = ColorForLevel(level);
+            return new LinearGradientBrush
+            {
+                StartPoint = new Point(0, 0),
+                EndPoint = new Point(1, 1),
+                GradientStops =
+                {
+                    new GradientStop(Color.FromArgb(235, 255, 255, 255), 0),
+                    new GradientStop(color, 0.16),
+                    new GradientStop(Color.FromRgb((byte)Math.Max(0, color.R - 22), (byte)Math.Max(0, color.G - 22), (byte)Math.Max(0, color.B - 22)), 1)
+                }
+            };
+        }
+
+        private static Color ColorForLevel(double level)
+        {
+            if (level < 20) return Color.FromRgb(239, 68, 68);
+            if (level < 40) return Color.FromRgb(249, 115, 22);
+            if (level > 88) return Color.FromRgb(59, 130, 246);
+            return Color.FromRgb(34, 211, 238);
+        }
+
+        private void UpdateTankVisual(DashboardWidgetViewModel widget, double level)
+        {
+            var bounded = Math.Max(0, Math.Min(100, level));
+            var maxHeight = widget.TankShell == null ? 108 : Math.Max(90, widget.TankShell.Height - 10);
+            var targetHeight = maxHeight * bounded / 100;
+            widget.TankLiquid.Background = BuildLiquidBrush(bounded);
+            widget.TankLiquid.BeginAnimation(HeightProperty, new DoubleAnimation(widget.TankLiquid.Height, targetHeight, TimeSpan.FromMilliseconds(420))
+            {
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            });
+        }
+
+        private bool IsWidgetForTagMotor(DashboardWidgetViewModel widget, string tag)
+        {
+            return widget != null
+                && string.Equals(MotorIdFromTag(widget.Tag), MotorIdFromTag(tag), StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string SeverityForAlarmText(string text)
+        {
+            var normalized = (text ?? string.Empty).ToLowerInvariant();
+            if (normalized.Contains("critica") || normalized.Contains("falla") || normalized.Contains("paro")) return "Critica";
+            if (normalized.Contains("advertencia") || normalized.Contains("alerta") || normalized.Contains("sobrecarga")) return "Advertencia";
+            return "Normal";
+        }
+
+        private static bool IsCriticalSeverity(string severity)
+        {
+            return string.Equals(severity, "Critica", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(severity, "Critical", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static Color ColorForSeverity(string severity)
+        {
+            if (IsCriticalSeverity(severity)) return Color.FromRgb(239, 68, 68);
+            if (string.Equals(severity, "Advertencia", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(severity, "Warning", StringComparison.OrdinalIgnoreCase)) return Color.FromRgb(245, 158, 11);
+            return Color.FromRgb(34, 197, 94);
+        }
+
+        private static string IconForSeverity(string severity)
+        {
+            if (IsCriticalSeverity(severity)) return "[CRIT]";
+            if (string.Equals(severity, "Advertencia", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(severity, "Warning", StringComparison.OrdinalIgnoreCase)) return "[WARN]";
+            return "[OK]";
+        }
+
         private static Color? ParseColor(string color)
         {
             if (string.IsNullOrWhiteSpace(color))
@@ -1526,6 +2102,24 @@ namespace GUI
         private static bool TagsMatch(string left, string right)
         {
             return string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private bool IsSelectedMotorTag(string tag)
+        {
+            return string.IsNullOrWhiteSpace(_selectedMotorId)
+                || (!string.IsNullOrWhiteSpace(tag)
+                    && tag.StartsWith(_selectedMotorId + ".", StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static string MotorIdFromTag(string tag)
+        {
+            if (string.IsNullOrWhiteSpace(tag))
+            {
+                return string.Empty;
+            }
+
+            var separator = tag.IndexOf('.');
+            return separator > 0 ? tag.Substring(0, separator) : string.Empty;
         }
 
         private static bool EndsWithTag(string tag, string suffix)
@@ -1612,7 +2206,22 @@ namespace GUI
         public Line Needle { get; set; }
         public Polyline TrendLine { get; set; }
         public Canvas TrendCanvas { get; set; }
+        public Border TankLiquid { get; set; }
+        public Border TankShell { get; set; }
+        public ListBox AlarmList { get; set; }
+        public ObservableCollection<AlarmEventViewModel> AlarmItems { get; set; }
         public List<double> History { get; private set; }
+    }
+
+    public class AlarmEventViewModel
+    {
+        public DateTime Time { get; set; }
+        public string MotorId { get; set; }
+        public string Severity { get; set; }
+        public string Message { get; set; }
+        public string Tag { get; set; }
+        public string Icon { get; set; }
+        public Brush ColorBrush { get; set; }
     }
 
     public class TagRowViewModel : NotifyObject
