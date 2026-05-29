@@ -15,6 +15,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Effects;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 
@@ -604,12 +605,24 @@ namespace GUI
             {
                 Width = width,
                 Height = height,
-                Background = new SolidColorBrush(Color.FromRgb(27, 34, 45)),
-                BorderBrush = new SolidColorBrush(Color.FromRgb(52, 70, 94)),
+                Background = new LinearGradientBrush(
+                    Color.FromRgb(18, 30, 46),
+                    Color.FromRgb(12, 20, 32),
+                    new Point(0, 0),
+                    new Point(1, 1)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(42, 64, 90)),
                 BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(6),
-                Padding = new Thickness(12),
-                Child = BuildWidgetContent(widget)
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(14, 12, 14, 12),
+                Child = BuildWidgetContent(widget),
+                Effect = new DropShadowEffect
+                {
+                    BlurRadius = 16,
+                    Direction = 270,
+                    ShadowDepth = 4,
+                    Opacity = 0.32,
+                    Color = Color.FromRgb(0, 0, 0)
+                }
             };
 
             widget.Container = border;
@@ -699,57 +712,95 @@ namespace GUI
         private UIElement BuildMetricWidget(DashboardWidgetViewModel widget)
         {
             var root = new Grid();
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            root.RowDefinitions.Add(new RowDefinition());
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             root.ColumnDefinitions.Add(new ColumnDefinition());
             root.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-            var stack = new StackPanel();
-            stack.Children.Add(new TextBlock
+            var title = new TextBlock
             {
                 Text = widget.Title.ToUpperInvariant(),
-                Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)),
+                Foreground = new SolidColorBrush(Color.FromRgb(158, 200, 234)),
                 FontSize = 12,
                 FontWeight = FontWeights.SemiBold
-            });
+            };
+            Grid.SetColumnSpan(title, 2);
+            root.Children.Add(title);
 
-            var valueLine = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 10, 0, 0) };
+            var valueLine = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 10, 8, 0)
+            };
             var value = new TextBlock
             {
                 Text = widget.ValueText,
-                FontSize = 26,
+                FontSize = 30,
                 FontFamily = new FontFamily("Consolas"),
                 FontWeight = FontWeights.Bold,
-                Foreground = Brushes.White
+                Foreground = Brushes.White,
+                Effect = new DropShadowEffect
+                {
+                    BlurRadius = 8,
+                    Direction = 0,
+                    ShadowDepth = 0,
+                    Opacity = 0.25,
+                    Color = Color.FromRgb(255, 255, 255)
+                }
             };
             valueLine.Children.Add(value);
             valueLine.Children.Add(new TextBlock
             {
                 Text = " " + widget.Unit,
-                Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)),
+                Foreground = new SolidColorBrush(Color.FromRgb(165, 188, 209)),
                 VerticalAlignment = VerticalAlignment.Bottom,
-                Margin = new Thickness(2, 0, 0, 3)
+                Margin = new Thickness(2, 0, 0, 5),
+                FontWeight = FontWeights.SemiBold
             });
-            stack.Children.Add(valueLine);
-            root.Children.Add(stack);
+            Grid.SetRow(valueLine, 1);
+            Grid.SetColumnSpan(valueLine, 2);
+            root.Children.Add(valueLine);
 
             var badge = new Border
             {
-                Width = 42,
-                Height = 42,
+                Width = 50,
+                Height = 50,
                 Background = widget.BadgeBrush,
                 CornerRadius = new CornerRadius(8),
+                BorderBrush = widget.AccentBrush,
+                BorderThickness = new Thickness(1),
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Center,
                 Child = new TextBlock
                 {
                     Text = IconFor(widget.Tag),
-                    FontSize = 20,
+                    FontSize = 19,
                     Foreground = widget.AccentBrush,
+                    FontWeight = FontWeights.Bold,
                     HorizontalAlignment = HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Center
                 }
             };
             Grid.SetColumn(badge, 1);
+            Grid.SetRow(badge, 1);
             root.Children.Add(badge);
 
+            var footer = new TextBlock
+            {
+                Text = widget.Tag,
+                Foreground = new SolidColorBrush(Color.FromRgb(93, 120, 148)),
+                FontSize = 11,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                Margin = new Thickness(0, 6, 0, 0)
+            };
+            Grid.SetRow(footer, 2);
+            Grid.SetColumnSpan(footer, 2);
+            root.Children.Add(footer);
+
             widget.ValueBlock = value;
+            widget.FooterBlock = footer;
             return root;
         }
 
@@ -763,22 +814,22 @@ namespace GUI
             root.Children.Add(new TextBlock
             {
                 Text = widget.Title.ToUpperInvariant(),
-                Foreground = new SolidColorBrush(Color.FromRgb(148, 163, 184)),
+                Foreground = new SolidColorBrush(Color.FromRgb(158, 200, 234)),
                 FontSize = 12,
                 FontWeight = FontWeights.SemiBold
             });
 
-            var gauge = new Canvas { Width = 160, Height = 100, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 6, 0, 0) };
+            var gauge = new Canvas { Width = 172, Height = 104, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 6, 0, 0) };
             for (var i = 0; i < 9; i++)
             {
                 var angle = 205 + i * 16;
                 var tick = new Line
                 {
-                    X1 = 80 + Math.Cos(angle * Math.PI / 180) * 58,
-                    Y1 = 80 + Math.Sin(angle * Math.PI / 180) * 58,
-                    X2 = 80 + Math.Cos(angle * Math.PI / 180) * 70,
-                    Y2 = 80 + Math.Sin(angle * Math.PI / 180) * 70,
-                    Stroke = new SolidColorBrush(Color.FromRgb(51, 65, 85)),
+                    X1 = 86 + Math.Cos(angle * Math.PI / 180) * 58,
+                    Y1 = 82 + Math.Sin(angle * Math.PI / 180) * 58,
+                    X2 = 86 + Math.Cos(angle * Math.PI / 180) * 72,
+                    Y2 = 82 + Math.Sin(angle * Math.PI / 180) * 72,
+                    Stroke = i >= 6 ? widget.AccentBrush : new SolidColorBrush(Color.FromRgb(55, 74, 100)),
                     StrokeThickness = 3
                 };
                 gauge.Children.Add(tick);
@@ -786,28 +837,28 @@ namespace GUI
 
             var needle = new Line
             {
-                X1 = 80,
-                Y1 = 80,
-                X2 = 80,
-                Y2 = 23,
+                X1 = 86,
+                Y1 = 82,
+                X2 = 86,
+                Y2 = 25,
                 Stroke = widget.AccentBrush,
                 StrokeThickness = 4,
                 StrokeStartLineCap = PenLineCap.Round,
                 StrokeEndLineCap = PenLineCap.Round,
                 RenderTransformOrigin = new Point(0.5, 1)
             };
-            needle.RenderTransform = new RotateTransform(-55, 80, 80);
+            needle.RenderTransform = new RotateTransform(-55, 86, 82);
             gauge.Children.Add(needle);
             gauge.Children.Add(new Ellipse
             {
-                Width = 16,
-                Height = 16,
+                Width = 18,
+                Height = 18,
                 Fill = new SolidColorBrush(Color.FromRgb(15, 23, 34)),
                 Stroke = widget.AccentBrush,
                 StrokeThickness = 3
             });
-            Canvas.SetLeft(gauge.Children[gauge.Children.Count - 1], 72);
-            Canvas.SetTop(gauge.Children[gauge.Children.Count - 1], 72);
+            Canvas.SetLeft(gauge.Children[gauge.Children.Count - 1], 77);
+            Canvas.SetTop(gauge.Children[gauge.Children.Count - 1], 73);
 
             Grid.SetRow(gauge, 1);
             root.Children.Add(gauge);
@@ -815,7 +866,7 @@ namespace GUI
             var value = new TextBlock
             {
                 Text = widget.ValueText,
-                FontSize = 24,
+                FontSize = 27,
                 FontFamily = new FontFamily("Consolas"),
                 FontWeight = FontWeights.Bold,
                 Foreground = Brushes.White,
@@ -836,11 +887,11 @@ namespace GUI
             {
                 Minimum = 0,
                 Maximum = 100,
-                Height = 8,
-                Margin = new Thickness(0, 76, 0, 0),
+                Height = 10,
+                Margin = new Thickness(0, 92, 0, 0),
                 VerticalAlignment = VerticalAlignment.Top,
                 Foreground = widget.AccentBrush,
-                Background = new SolidColorBrush(Color.FromRgb(51, 65, 85))
+                Background = new SolidColorBrush(Color.FromRgb(43, 58, 78))
             };
             Grid.SetColumnSpan(bar, 2);
             root.Children.Add(bar);
@@ -857,12 +908,12 @@ namespace GUI
             root.Children.Add(new TextBlock
             {
                 Text = widget.Title.ToUpperInvariant(),
-                Foreground = Brushes.White,
+                Foreground = new SolidColorBrush(Color.FromRgb(158, 200, 234)),
                 FontSize = 13,
                 FontWeight = FontWeights.Bold
             });
 
-            var canvas = new Canvas { Height = 122, Margin = new Thickness(0, 16, 0, 0), Background = new SolidColorBrush(Color.FromRgb(15, 23, 34)) };
+            var canvas = new Canvas { Height = 122, Margin = new Thickness(0, 16, 0, 0), Background = new SolidColorBrush(Color.FromRgb(8, 14, 24)) };
             for (var y = 20; y <= 100; y += 20)
             {
                 canvas.Children.Add(new Line
@@ -871,7 +922,7 @@ namespace GUI
                     X2 = 310,
                     Y1 = y,
                     Y2 = y,
-                    Stroke = new SolidColorBrush(Color.FromRgb(31, 41, 55)),
+                    Stroke = new SolidColorBrush(Color.FromRgb(30, 48, 70)),
                     StrokeDashArray = new DoubleCollection { 3, 3 },
                     StrokeThickness = 1
                 });
@@ -880,7 +931,7 @@ namespace GUI
             var line = new Polyline
             {
                 Stroke = widget.AccentBrush,
-                StrokeThickness = 2
+                StrokeThickness = 3
             };
             canvas.Children.Add(line);
 
@@ -921,7 +972,7 @@ namespace GUI
             root.Children.Add(new TextBlock
             {
                 Text = widget.Title.ToUpperInvariant(),
-                Foreground = Brushes.White,
+                Foreground = new SolidColorBrush(Color.FromRgb(158, 200, 234)),
                 FontSize = 13,
                 FontWeight = FontWeights.Bold
             });

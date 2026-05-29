@@ -12,38 +12,39 @@
         Loaded="Window_Loaded"
         Closing="Window_Closing"
         PreviewKeyDown="Window_PreviewKeyDown"
-        Background="#0E1117"
+        Background="#080C12"
         FontFamily="Segoe UI"
         FontSize="13.5">
     <Window.Resources>
-        <SolidColorBrush x:Key="PanelBrush" Color="#151A22" />
-        <SolidColorBrush x:Key="PanelAltBrush" Color="#1B222D" />
+        <SolidColorBrush x:Key="PanelBrush" Color="#0F1520" />
+        <SolidColorBrush x:Key="PanelAltBrush" Color="#141D2B" />
         <SolidColorBrush x:Key="AccentBrush" Color="#28C7A4" />
         <SolidColorBrush x:Key="AccentBlueBrush" Color="#4FA3FF" />
         <SolidColorBrush x:Key="IndustrialYellowBrush" Color="#F7C948" />
         <SolidColorBrush x:Key="IndustrialOrangeBrush" Color="#F97316" />
         <SolidColorBrush x:Key="TextBrush" Color="#EEF4F8" />
-        <SolidColorBrush x:Key="MutedTextBrush" Color="#8FA0B3" />
-        <DropShadowEffect x:Key="SoftShadow" BlurRadius="18" Direction="270" ShadowDepth="4" Opacity="0.28" Color="#000000" />
+        <SolidColorBrush x:Key="MutedTextBrush" Color="#8FA6BD" />
+        <SolidColorBrush x:Key="DimTextBrush" Color="#55708C" />
+
+        <DropShadowEffect x:Key="SoftShadow" BlurRadius="24" Direction="270" ShadowDepth="4" Opacity="0.35" Color="#000000" />
+        <DropShadowEffect x:Key="AccentGlow" BlurRadius="18" Direction="0" ShadowDepth="0" Opacity="0.42" Color="#28C7A4" />
+        <DropShadowEffect x:Key="YellowGlow" BlurRadius="18" Direction="0" ShadowDepth="0" Opacity="0.35" Color="#F7C948" />
+        <DropShadowEffect x:Key="RedGlow" BlurRadius="20" Direction="0" ShadowDepth="0" Opacity="0.50" Color="#EF4444" />
+
         <Style TargetType="TextBlock">
             <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
             <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
         </Style>
+
         <Style TargetType="Button">
             <Setter Property="MinHeight" Value="34" />
             <Setter Property="Padding" Value="14,8" />
             <Setter Property="Foreground" Value="#EEF4F8" />
-            <Setter Property="Background" Value="#1C2A3D" />
-            <Setter Property="BorderBrush" Value="#35506F" />
+            <Setter Property="Background" Value="#162034" />
+            <Setter Property="BorderBrush" Value="#2A4060" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
-            <Setter Property="RenderTransform">
-                <Setter.Value>
-                    <ScaleTransform ScaleX="1" ScaleY="1" />
-                </Setter.Value>
-            </Setter>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -54,129 +55,224 @@
                                 CornerRadius="8"
                                 SnapsToDevicePixels="True">
                             <Border.Effect>
-                                <DropShadowEffect BlurRadius="10" Direction="270" ShadowDepth="2" Opacity="0.2" Color="#000000" />
+                                <DropShadowEffect BlurRadius="12" Direction="270" ShadowDepth="2" Opacity="0.28" Color="#000000" />
                             </Border.Effect>
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"
-                                              Margin="{TemplateBinding Padding}" />
+                            <Border BorderBrush="#24FFFFFF" BorderThickness="0,1,0,0" CornerRadius="8">
+                                <ContentPresenter HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  Margin="{TemplateBinding Padding}" />
+                            </Border>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ButtonChrome" Property="Background" Value="#244464" />
-                                <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="#22D3EE" />
+                                <Setter TargetName="ButtonChrome" Property="Background" Value="#1F3B5C" />
+                                <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="#28C7A4" />
+                                <Setter TargetName="ButtonChrome" Property="Effect">
+                                    <Setter.Value>
+                                        <DropShadowEffect BlurRadius="16" Direction="0" ShadowDepth="0" Opacity="0.42" Color="#28C7A4" />
+                                    </Setter.Value>
+                                </Setter>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="ButtonChrome" Property="Background" Value="#102033" />
+                                <Setter TargetName="ButtonChrome" Property="Background" Value="#0F1B2B" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="ButtonChrome" Property="Opacity" Value="0.55" />
+                                <Setter TargetName="ButtonChrome" Property="Opacity" Value="0.50" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
+
         <Style TargetType="TextBox">
             <Setter Property="MinHeight" Value="36" />
             <Setter Property="Padding" Value="10,6" />
-            <Setter Property="Foreground" Value="#EEF4F8" />
-            <Setter Property="Background" Value="#101722" />
-            <Setter Property="BorderBrush" Value="#2B3A51" />
+            <Setter Property="Foreground" Value="#DCEBFA" />
+            <Setter Property="Background" Value="#0A1220" />
+            <Setter Property="BorderBrush" Value="#1E3250" />
             <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CaretBrush" Value="#28C7A4" />
+            <Setter Property="SelectionBrush" Value="#28C7A480" />
         </Style>
-        <Style TargetType="DataGridColumnHeader">
-            <Setter Property="Foreground" Value="#C8D3DF" />
-            <Setter Property="Background" Value="#162131" />
-            <Setter Property="BorderBrush" Value="#2B3A51" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Padding" Value="8,7" />
-        </Style>
+
         <Style TargetType="ComboBox">
             <Setter Property="MinHeight" Value="36" />
             <Setter Property="Padding" Value="8,4" />
-            <Setter Property="Foreground" Value="#EEF4F8" />
-            <Setter Property="Background" Value="#101722" />
-            <Setter Property="BorderBrush" Value="#2B3A51" />
+            <Setter Property="Foreground" Value="#DCEBFA" />
+            <Setter Property="Background" Value="#0A1220" />
+            <Setter Property="BorderBrush" Value="#1E3250" />
             <Setter Property="BorderThickness" Value="1" />
+        </Style>
+
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="Foreground" Value="#9FC8EA" />
+            <Setter Property="Background" Value="#111C2B" />
+            <Setter Property="BorderBrush" Value="#213752" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="8,7" />
+            <Setter Property="FontSize" Value="11.5" />
+        </Style>
+
+        <Style TargetType="DataGridCell">
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="6,3" />
+            <Setter Property="Foreground" Value="#D7E5F2" />
         </Style>
     </Window.Resources>
 
     <Grid>
         <Grid.Background>
             <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                <GradientStop Color="#080C12" Offset="0" />
-                <GradientStop Color="#101722" Offset="0.45" />
-                <GradientStop Color="#08111C" Offset="1" />
+                <GradientStop Color="#04070D" Offset="0" />
+                <GradientStop Color="#0A1018" Offset="0.50" />
+                <GradientStop Color="#060C14" Offset="1" />
             </LinearGradientBrush>
         </Grid.Background>
+
         <Grid.RowDefinitions>
             <RowDefinition Height="106" />
             <RowDefinition Height="*" />
             <RowDefinition Height="34" />
         </Grid.RowDefinitions>
 
-        <Border Grid.Row="0" Background="#111721" BorderBrush="#243044" BorderThickness="0,0,0,1" Effect="{StaticResource SoftShadow}">
-            <Grid Margin="18,0">
+        <Rectangle IsHitTestVisible="False" Opacity="0.025">
+            <Rectangle.Fill>
+                <DrawingBrush TileMode="Tile" Viewport="0,0,4,4" ViewportUnits="Absolute">
+                    <DrawingBrush.Drawing>
+                        <GeometryDrawing Brush="#FFFFFF">
+                            <GeometryDrawing.Geometry>
+                                <RectangleGeometry Rect="0,0,4,1" />
+                            </GeometryDrawing.Geometry>
+                        </GeometryDrawing>
+                    </DrawingBrush.Drawing>
+                </DrawingBrush>
+            </Rectangle.Fill>
+        </Rectangle>
+
+        <Border Grid.Row="0" BorderThickness="0,0,0,1" Effect="{StaticResource SoftShadow}">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="#0C1520" Offset="0" />
+                    <GradientStop Color="#080F1A" Offset="1" />
+                </LinearGradientBrush>
+            </Border.Background>
+            <Border.BorderBrush>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                    <GradientStop Color="#0A1830" Offset="0" />
+                    <GradientStop Color="#28C7A455" Offset="0.50" />
+                    <GradientStop Color="#0A1830" Offset="1" />
+                </LinearGradientBrush>
+            </Border.BorderBrush>
+
+            <Grid Margin="20,0">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="300" />
+                    <ColumnDefinition Width="310" />
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="330" />
+                    <ColumnDefinition Width="340" />
                 </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="54" />
+                    <RowDefinition Height="58" />
                     <RowDefinition Height="42" />
                 </Grid.RowDefinitions>
 
-                <StackPanel Grid.RowSpan="2" VerticalAlignment="Center">
-                    <TextBlock Text="VisualIoT SCADA" FontSize="24" FontWeight="SemiBold" Foreground="{StaticResource IndustrialYellowBrush}" />
-                    <TextBlock x:Name="ProjectNameHeaderTextBlock" Text="Linea de jugos naturales" Foreground="{StaticResource MutedTextBrush}" />
+                <StackPanel Grid.RowSpan="2" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <Border Width="4" Height="38" CornerRadius="2" HorizontalAlignment="Left" Margin="0,0,0,4">
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                <GradientStop Color="#28C7A4" Offset="0" />
+                                <GradientStop Color="#F7C948" Offset="1" />
+                            </LinearGradientBrush>
+                        </Border.Background>
+                    </Border>
+                    <TextBlock Text="VisualIoT SCADA" FontSize="24" FontWeight="Bold" Effect="{StaticResource YellowGlow}">
+                        <TextBlock.Foreground>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                <GradientStop Color="#F7C948" Offset="0" />
+                                <GradientStop Color="#FDE68A" Offset="1" />
+                            </LinearGradientBrush>
+                        </TextBlock.Foreground>
+                    </TextBlock>
+                    <TextBlock x:Name="ProjectNameHeaderTextBlock" Text="Linea de jugos naturales" Foreground="{StaticResource MutedTextBrush}" FontSize="12" Margin="0,2,0,0" />
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Left">
-                    <TextBlock Text="Broker" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="Bold" />
-                    <TextBox x:Name="BrokerTextBox" Text="broker.hivemq.com" Width="210" Margin="0,0,14,0" />
-                    <TextBlock Text="Puerto" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="Bold" />
-                    <TextBox x:Name="PortTextBox" Text="1883" Width="82" Margin="0,0,14,0" />
-                    <TextBlock Text="Topic" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="Bold" />
-                    <TextBox x:Name="TopicTextBox" Text="visualiot/#" Width="180" Margin="0,0,14,0" />
+                    <Border Background="#0A1626" BorderBrush="#1A2E48" BorderThickness="1" CornerRadius="6" Padding="10,0" Margin="0,0,6,0">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="BROKER" Foreground="#6B86A4" FontSize="10.5" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <TextBox x:Name="BrokerTextBox" Text="broker.hivemq.com" Width="200" BorderThickness="0" Background="Transparent" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+                    <Border Background="#0A1626" BorderBrush="#1A2E48" BorderThickness="1" CornerRadius="6" Padding="10,0" Margin="0,0,6,0">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="PUERTO" Foreground="#6B86A4" FontSize="10.5" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <TextBox x:Name="PortTextBox" Text="1883" Width="72" BorderThickness="0" Background="Transparent" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+                    <Border Background="#0A1626" BorderBrush="#1A2E48" BorderThickness="1" CornerRadius="6" Padding="10,0">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="TOPIC" Foreground="#6B86A4" FontSize="10.5" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <TextBox x:Name="TopicTextBox" Text="visualiot/#" Width="160" BorderThickness="0" Background="Transparent" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
 
                 <WrapPanel Grid.Column="1" Grid.Row="1" VerticalAlignment="Top" HorizontalAlignment="Left">
-                    <Button x:Name="ConnectButton" Content="Conectar" Click="ConnectButton_Click" Width="94" Margin="0,0,8,0" />
-                    <Button x:Name="SimulationButton" Content="Iniciar simulacion" Click="SimulationButton_Click" Width="150" Margin="0,0,8,0" />
-                    <Button x:Name="NewDashboardButton" Content="Nuevo" Click="NewDashboardButton_Click" Width="96" Margin="0,0,8,0" />
-                    <Button x:Name="SaveDashboardButton" Content="Guardar Dashboard" Click="SaveDashboardButton_Click" Width="166" Margin="0,0,8,0" />
-                    <Button x:Name="AutomationButton" Content="Automatizacion" Click="AutomationButton_Click" Width="144" Margin="0,0,8,0" />
+                    <Button x:Name="ConnectButton" Content="Conectar" Click="ConnectButton_Click" Width="104" Background="#0D2B1A" BorderBrush="#28C7A4" Foreground="#8FFFE8" Margin="0,0,7,0" />
+                    <Button x:Name="SimulationButton" Content="Iniciar simulacion" Click="SimulationButton_Click" Width="150" Margin="0,0,7,0" />
+                    <Button x:Name="NewDashboardButton" Content="Nuevo" Click="NewDashboardButton_Click" Width="100" Margin="0,0,7,0" />
+                    <Button x:Name="SaveDashboardButton" Content="Guardar Dashboard" Click="SaveDashboardButton_Click" Width="176" Margin="0,0,7,0" />
+                    <Button x:Name="AutomationButton" Content="Automatizacion" Click="AutomationButton_Click" Width="152" Background="#1A1206" BorderBrush="#F7C948" Foreground="#FDE68A" />
                 </WrapPanel>
 
-                <StackPanel Grid.Column="2" Grid.RowSpan="2" VerticalAlignment="Center" HorizontalAlignment="Right">
-                    <TextBlock x:Name="DashboardNameHeaderTextBlock" Text="Dashboard principal" HorizontalAlignment="Right" FontSize="18" FontWeight="SemiBold" />
-                    <TextBlock x:Name="SelectedMotorHeaderTextBlock" Text="Motor: MOTOR_01" Foreground="#C8D3DF" HorizontalAlignment="Right" FontWeight="SemiBold" />
-                    <TextBlock x:Name="ConnectionStatusTextBlock" Text="MQTT desconectado" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Right" FontWeight="Bold" />
-                </StackPanel>
+                <Border Grid.Column="2" Grid.RowSpan="2" Background="#080E18" BorderBrush="#142030" BorderThickness="1" CornerRadius="10" Padding="16,10" HorizontalAlignment="Right" VerticalAlignment="Center" Width="310">
+                    <StackPanel>
+                        <TextBlock x:Name="DashboardNameHeaderTextBlock" Text="Dashboard principal" HorizontalAlignment="Right" FontSize="17" FontWeight="SemiBold" Foreground="#DDEAF5" />
+                        <TextBlock x:Name="SelectedMotorHeaderTextBlock" Text="Motor: MOTOR_01" Foreground="#8CBFEA" HorizontalAlignment="Right" FontWeight="SemiBold" FontSize="12" Margin="0,4,0,4" />
+                        <Border HorizontalAlignment="Right" CornerRadius="12" Background="#0A1A10" BorderBrush="#1A4428" BorderThickness="1" Padding="10,4">
+                            <TextBlock x:Name="ConnectionStatusTextBlock" Text="MQTT desconectado" Foreground="#B6C1D0" FontWeight="Bold" FontSize="11.5" />
+                        </Border>
+                    </StackPanel>
+                </Border>
             </Grid>
         </Border>
 
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="230" />
+                <ColumnDefinition Width="224" />
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="270" />
+                <ColumnDefinition Width="282" />
             </Grid.ColumnDefinitions>
 
-            <Border Grid.Column="0" Background="{StaticResource PanelBrush}" BorderBrush="#243044" BorderThickness="0,0,1,0" Effect="{StaticResource SoftShadow}">
-                <DockPanel Margin="14">
+            <Border Grid.Column="0" BorderBrush="#1A2A3A" BorderThickness="0,0,1,0" Effect="{StaticResource SoftShadow}">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                        <GradientStop Color="#0C1520" Offset="0" />
+                        <GradientStop Color="#0A1218" Offset="1" />
+                    </LinearGradientBrush>
+                </Border.Background>
+                <DockPanel Margin="12">
                     <Button DockPanel.Dock="Bottom"
                             x:Name="BackToProjectsButton"
                             Content="&lt;&lt; Proyectos"
                             Click="BackToProjectsButton_Click"
-                            Margin="0,14,0,0"
-                            Background="#2A2415"
-                            BorderBrush="#F7C948"
-                            Foreground="#FDE68A" />
-                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
-                        <TextBlock Text="Panel SCADA" FontSize="18" FontWeight="SemiBold" />
-                        <TextBlock Text="Widgets industriales" Foreground="{StaticResource MutedTextBrush}" Margin="0,3,0,0" />
+                            Margin="0,12,0,0"
+                            Background="#1A1406"
+                            BorderBrush="#F7C94870"
+                            Foreground="#FDE68A"
+                            FontSize="12" />
+
+                    <StackPanel DockPanel.Dock="Top" Margin="0,4,0,14">
+                        <TextBlock Text="Panel SCADA" FontSize="17" FontWeight="Bold" Foreground="#DDEAF5" />
+                        <Border Width="42" Height="2" HorizontalAlignment="Left" Margin="0,5,0,0" CornerRadius="1">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                    <GradientStop Color="#28C7A4" Offset="0" />
+                                    <GradientStop Color="Transparent" Offset="1" />
+                                </LinearGradientBrush>
+                            </Border.Background>
+                        </Border>
+                        <TextBlock Text="Widgets industriales" Foreground="{StaticResource DimTextBrush}" Margin="0,5,0,0" FontSize="11.5" />
                     </StackPanel>
 
                     <ListBox x:Name="WidgetPalette"
@@ -184,16 +280,29 @@
                              PreviewMouseMove="WidgetPalette_PreviewMouseMove"
                              Background="Transparent"
                              BorderThickness="0"
-                             Foreground="{StaticResource TextBrush}">
+                             Foreground="{StaticResource TextBrush}"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <Border Background="#1B2430" BorderBrush="#34465E" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,8">
+                                <Border CornerRadius="8" Padding="11,9" Margin="0,0,0,7" Cursor="Hand" BorderThickness="1">
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                            <GradientStop Color="#121E2E" Offset="0" />
+                                            <GradientStop Color="#0E1828" Offset="1" />
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                    <Border.BorderBrush>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                            <GradientStop Color="#2A4660" Offset="0" />
+                                            <GradientStop Color="#1A2E44" Offset="1" />
+                                        </LinearGradientBrush>
+                                    </Border.BorderBrush>
                                     <Border.Effect>
-                                        <DropShadowEffect BlurRadius="10" Direction="270" ShadowDepth="2" Opacity="0.18" Color="#000000" />
+                                        <DropShadowEffect BlurRadius="8" Direction="270" ShadowDepth="2" Opacity="0.22" Color="#000000" />
                                     </Border.Effect>
                                     <StackPanel>
-                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
-                                        <TextBlock Text="{Binding Description}" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" Margin="0,3,0,0" />
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="#CDE1F1" FontSize="13" />
+                                        <TextBlock Text="{Binding Description}" Foreground="#8FA6BD" TextWrapping="Wrap" Margin="0,3,0,0" FontSize="11.5" />
                                     </StackPanel>
                                 </Border>
                             </DataTemplate>
@@ -204,12 +313,18 @@
 
             <Grid Grid.Column="1">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="168" />
+                    <RowDefinition Height="162" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <Border Grid.Row="0" Background="#101722" BorderBrush="#243044" BorderThickness="0,0,0,1">
-                    <ItemsControl x:Name="MotorCards" ItemsSource="{Binding Motors}" Margin="14">
+                <Border Grid.Row="0" BorderBrush="#1A2A3A" BorderThickness="0,0,0,1">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop Color="#0A1420" Offset="0" />
+                            <GradientStop Color="#080E18" Offset="1" />
+                        </LinearGradientBrush>
+                    </Border.Background>
+                    <ItemsControl x:Name="MotorCards" ItemsSource="{Binding Motors}" Margin="12,10">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <UniformGrid Rows="1" />
@@ -217,42 +332,55 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Background="{StaticResource PanelAltBrush}"
-                                        BorderBrush="{Binding SelectionBrush}"
-                                        BorderThickness="{Binding SelectionThickness}"
-                                        CornerRadius="8"
+                                <Border CornerRadius="10"
                                         Margin="0,0,10,0"
-                                        Padding="12"
+                                        Padding="12,10"
                                         Tag="{Binding Id}"
                                         Cursor="Hand"
+                                        BorderThickness="{Binding SelectionThickness}"
+                                        BorderBrush="{Binding SelectionBrush}"
                                         MouseLeftButtonDown="MotorCard_MouseLeftButtonDown">
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                            <GradientStop Color="#101E30" Offset="0" />
+                                            <GradientStop Color="#0C1824" Offset="1" />
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="16" Direction="270" ShadowDepth="4" Opacity="0.36" Color="#000000" />
+                                    </Border.Effect>
                                     <Grid>
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto" />
                                             <RowDefinition Height="*" />
                                             <RowDefinition Height="Auto" />
                                         </Grid.RowDefinitions>
+
                                         <StackPanel>
-                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="15" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Text="{Binding Line}" Foreground="{StaticResource MutedTextBrush}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14" TextTrimming="CharacterEllipsis" Foreground="#DDEAF5" />
+                                            <TextBlock Text="{Binding Line}" Foreground="#82ACD2" FontSize="11.5" TextTrimming="CharacterEllipsis" />
                                         </StackPanel>
-                                        <Grid Grid.Row="1" Margin="0,10,0,8">
+
+                                        <Grid Grid.Row="1" Margin="0,8,0,6">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition />
+                                                <ColumnDefinition Width="1" />
                                                 <ColumnDefinition />
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel>
-                                                <TextBlock Text="{Binding RpmText}" FontSize="24" FontWeight="SemiBold" />
-                                                <TextBlock Text="RPM" Foreground="White" />
+                                            <StackPanel HorizontalAlignment="Center">
+                                                <TextBlock Text="{Binding RpmText}" FontSize="22" FontWeight="Bold" Foreground="#28C7A4" Effect="{StaticResource AccentGlow}" />
+                                                <TextBlock Text="RPM" Foreground="#70A99B" FontSize="10.5" FontWeight="Bold" HorizontalAlignment="Center" />
                                             </StackPanel>
-                                            <StackPanel Grid.Column="1">
-                                                <TextBlock Text="{Binding TemperatureText}" FontSize="24" FontWeight="SemiBold" />
-                                                <TextBlock Text="Temperatura" Foreground="{StaticResource MutedTextBrush}" />
+                                            <Rectangle Grid.Column="1" Width="1" Fill="#1A3050" VerticalAlignment="Stretch" />
+                                            <StackPanel Grid.Column="2" HorizontalAlignment="Center">
+                                                <TextBlock Text="{Binding TemperatureText}" FontSize="22" FontWeight="Bold" Foreground="#F7C948" Effect="{StaticResource YellowGlow}" />
+                                                <TextBlock Text="TEMP" Foreground="#BCA756" FontSize="10.5" FontWeight="Bold" HorizontalAlignment="Center" />
                                             </StackPanel>
                                         </Grid>
+
                                         <StackPanel Grid.Row="2">
-                                            <TextBlock Text="{Binding StateText}" Foreground="{Binding StateBrush}" FontWeight="SemiBold" />
-                                            <ProgressBar Minimum="0" Maximum="100" Value="{Binding Efficiency}" Height="7" Margin="0,6,0,0" />
+                                            <TextBlock Text="{Binding StateText}" Foreground="{Binding StateBrush}" FontWeight="Bold" FontSize="11.5" />
+                                            <ProgressBar Minimum="0" Maximum="100" Value="{Binding Efficiency}" Height="6" Margin="0,5,0,0" Foreground="#28C7A4" Background="#1C2D3F" />
                                         </StackPanel>
                                     </Grid>
                                 </Border>
@@ -261,7 +389,7 @@
                     </ItemsControl>
                 </Border>
 
-                <Border Grid.Row="1" Background="#0E1117">
+                <Border Grid.Row="1" Background="#070C14">
                     <Grid>
                         <Canvas x:Name="DashboardCanvas"
                                 AllowDrop="True"
@@ -272,9 +400,9 @@
                             <Canvas.Background>
                                 <DrawingBrush TileMode="Tile" Viewport="0,0,88,88" ViewportUnits="Absolute">
                                     <DrawingBrush.Drawing>
-                                        <GeometryDrawing Brush="#0E1117">
+                                        <GeometryDrawing Brush="#070C14">
                                             <GeometryDrawing.Pen>
-                                                <Pen Brush="#243044" Thickness="0.8" />
+                                                <Pen Brush="#1A2B40" Thickness="0.9" />
                                             </GeometryDrawing.Pen>
                                             <GeometryDrawing.Geometry>
                                                 <GeometryGroup>
@@ -287,29 +415,40 @@
                                 </DrawingBrush>
                             </Canvas.Background>
                         </Canvas>
-                        <TextBlock x:Name="EmptyDashboardText"
-                                   Text="Arrastra widgets aqui"
-                                   Foreground="#536579"
-                                   FontSize="20"
-                                   FontWeight="SemiBold"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center" />
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
+                            <TextBlock x:Name="EmptyDashboardText" Text="Arrastra widgets aqui" Foreground="#2C4663" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                            <TextBlock Text="desde el panel izquierdo" Foreground="#1D3047" FontSize="13" HorizontalAlignment="Center" Margin="0,6,0,0" Visibility="{Binding Visibility, ElementName=EmptyDashboardText}" />
+                        </StackPanel>
                     </Grid>
                 </Border>
             </Grid>
 
-            <Border Grid.Column="2" Background="{StaticResource PanelBrush}" BorderBrush="#243044" BorderThickness="1,0,0,0" Width="250" Effect="{StaticResource SoftShadow}">
-                <Grid Margin="14">
+            <Border Grid.Column="2" BorderBrush="#1A2A3A" BorderThickness="1,0,0,0" Effect="{StaticResource SoftShadow}">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="1,0" EndPoint="0,0">
+                        <GradientStop Color="#0C1520" Offset="0" />
+                        <GradientStop Color="#0A1218" Offset="1" />
+                    </LinearGradientBrush>
+                </Border.Background>
+                <Grid Margin="12">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition />
-                        <RowDefinition Height="303"/>
-                        <RowDefinition Height="190" />
+                        <RowDefinition Height="292" />
+                        <RowDefinition Height="188" />
                     </Grid.RowDefinitions>
 
-                    <StackPanel>
-                        <TextBlock Text="Telemetria" FontSize="17" FontWeight="SemiBold" />
-                        <TextBlock Text="Tags recibidos en tiempo real" Foreground="{StaticResource MutedTextBrush}" Margin="0,3,0,10" />
+                    <StackPanel Margin="2,4,2,10">
+                        <TextBlock Text="Telemetria" FontSize="16" FontWeight="Bold" Foreground="#DDEAF5" />
+                        <Border Width="34" Height="2" HorizontalAlignment="Left" Margin="0,4,0,0" CornerRadius="1">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                    <GradientStop Color="#4FA3FF" Offset="0" />
+                                    <GradientStop Color="Transparent" Offset="1" />
+                                </LinearGradientBrush>
+                            </Border.Background>
+                        </Border>
+                        <TextBlock Text="Tags recibidos en tiempo real" Foreground="{StaticResource DimTextBrush}" FontSize="11" Margin="0,4,0,0" />
                     </StackPanel>
 
                     <DataGrid Grid.Row="1"
@@ -319,60 +458,95 @@
                               IsReadOnly="True"
                               HeadersVisibility="Column"
                               GridLinesVisibility="None"
-                              Background="#101722"
-                              Foreground="{StaticResource TextBrush}"
-                              RowBackground="#101722"
-                              AlternatingRowBackground="#151D29"
-                              BorderBrush="#2B3A51"
-                              CanUserResizeRows="False" Margin="10,0,10,0" Grid.RowSpan="2">
+                              Background="#070E18"
+                              Foreground="#D7E5F2"
+                              RowBackground="#070E18"
+                              AlternatingRowBackground="#0D1723"
+                              BorderBrush="#1A2A3A"
+                              BorderThickness="1"
+                              CanUserResizeRows="False"
+                              FontSize="12.5"
+                              Margin="0"
+                              Grid.RowSpan="2">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Tag" Binding="{Binding Tag}" Width="*" />
-                            <DataGridTextColumn Header="Valor" Binding="{Binding Value}" Width="95" />
+                            <DataGridTextColumn Header="Valor" Binding="{Binding Value}" Width="85" />
                         </DataGrid.Columns>
                     </DataGrid>
 
-                    <Border Grid.Row="3" Background="#101722" BorderBrush="#34465E" BorderThickness="1" CornerRadius="6" Margin="0,12,0,0" Padding="10">
+                    <Border Grid.Row="3" Background="#060B14" BorderBrush="#1A2A3A" BorderThickness="1" CornerRadius="8" Margin="0,10,0,0" Padding="10,8">
                         <DockPanel>
-                            <TextBlock DockPanel.Dock="Top" Text="Eventos" FontWeight="SemiBold" Margin="0,0,0,8" />
+                            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8" Orientation="Horizontal">
+                                <Border Width="8" Height="8" CornerRadius="4" Background="#28C7A4" VerticalAlignment="Center" Margin="0,0,7,0">
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="8" Direction="0" ShadowDepth="0" Opacity="0.85" Color="#28C7A4" />
+                                    </Border.Effect>
+                                </Border>
+                                <TextBlock Text="Eventos" FontWeight="Bold" FontSize="12.5" Foreground="#9FC8EA" />
+                            </StackPanel>
                             <ListBox x:Name="EventsList"
                                      ItemsSource="{Binding Events}"
                                      Background="Transparent"
                                      BorderThickness="0"
-                                     Foreground="{StaticResource TextBrush}" />
+                                     Foreground="#A8B9CA"
+                                     FontSize="11.5" />
                         </DockPanel>
                     </Border>
                 </Grid>
             </Border>
         </Grid>
 
-        <Border Grid.Row="2" Background="#111721" BorderBrush="#243044" BorderThickness="0,1,0,0">
-            <TextBlock x:Name="StatusBarTextBlock"
-                       Text="Listo"
-                       Foreground="{StaticResource MutedTextBrush}"
-                       VerticalAlignment="Center"
-                       Margin="14,0" />
+        <Border Grid.Row="2" BorderBrush="#0E1E30" BorderThickness="0,1,0,0">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="#0A1420" Offset="0" />
+                    <GradientStop Color="#070E18" Offset="1" />
+                </LinearGradientBrush>
+            </Border.Background>
+            <Grid>
+                <TextBlock x:Name="StatusBarTextBlock" Text="Listo" Foreground="#6E8CAD" VerticalAlignment="Center" Margin="16,0" FontSize="11.5" />
+                <Border HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,14,0" Background="#0A1830" BorderBrush="#1A2E48" BorderThickness="1" CornerRadius="4" Padding="8,2">
+                    <TextBlock Text="VisualIoT v2.0" Foreground="#6E8CAD" FontSize="10.5" FontWeight="SemiBold" />
+                </Border>
+            </Grid>
         </Border>
 
         <Border x:Name="AlertPopup"
                 Grid.RowSpan="3"
-                Width="420"
-                MinHeight="88"
+                Width="430"
+                MinHeight="90"
                 HorizontalAlignment="Right"
                 VerticalAlignment="Top"
-                Margin="0,86,28,0"
-                Background="#2A1111"
-                BorderBrush="#EF4444"
-                BorderThickness="1"
+                Margin="0,90,24,0"
                 CornerRadius="12"
-                Padding="16"
+                Padding="18,14"
                 Opacity="0"
                 Visibility="Collapsed"
-                Effect="{StaticResource SoftShadow}">
+                Effect="{StaticResource RedGlow}"
+                BorderThickness="1">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="#1E0808" Offset="0" />
+                    <GradientStop Color="#2A0C0C" Offset="1" />
+                </LinearGradientBrush>
+            </Border.Background>
+            <Border.BorderBrush>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                    <GradientStop Color="#EF4444" Offset="0" />
+                    <GradientStop Color="#F97316" Offset="1" />
+                </LinearGradientBrush>
+            </Border.BorderBrush>
             <StackPanel>
-                <TextBlock x:Name="AlertTitleTextBlock" Text="ALERTA INDUSTRIAL" FontSize="15" FontWeight="Bold" Foreground="#FEE2E2" />
-                <TextBlock x:Name="AlertMessageTextBlock" Text="Evento de automatizacion" TextWrapping="Wrap" Foreground="#FFE4E6" Margin="0,7,0,0" />
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                    <Border Width="10" Height="10" CornerRadius="5" Background="#EF4444" VerticalAlignment="Center" Margin="0,0,9,0">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="10" Direction="0" ShadowDepth="0" Opacity="1.0" Color="#EF4444" />
+                        </Border.Effect>
+                    </Border>
+                    <TextBlock x:Name="AlertTitleTextBlock" Text="ALERTA INDUSTRIAL" FontSize="14" FontWeight="Bold" Foreground="#FCA5A5" />
+                </StackPanel>
+                <TextBlock x:Name="AlertMessageTextBlock" Text="Evento de automatizacion" TextWrapping="Wrap" Foreground="#F4B4B4" FontSize="12.5" Margin="19,0,0,0" />
             </StackPanel>
         </Border>
-
     </Grid>
 </Window>
