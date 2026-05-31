@@ -2,53 +2,132 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="VisualIoT - Acceso"
-        Height="620"
-        Width="900"
-        MinHeight="520"
-        MinWidth="720"
+        Height="680"
+        Width="1040"
+        MinHeight="600"
+        MinWidth="900"
         WindowStartupLocation="CenterScreen"
-        Background="#0B1018"
+        Background="#071019"
         FontFamily="Segoe UI"
         FontSize="13.5">
     <Window.Resources>
-        <SolidColorBrush x:Key="TextBrush" Color="#F7FAFC" />
-        <SolidColorBrush x:Key="MutedTextBrush" Color="#A8B6C7" />
+        <SolidColorBrush x:Key="TextBrush" Color="#F1F7FB" />
+        <SolidColorBrush x:Key="MutedTextBrush" Color="#A7B7C8" />
+        <SolidColorBrush x:Key="DimTextBrush" Color="#72849A" />
+        <SolidColorBrush x:Key="PanelBrush" Color="#101923" />
+        <SolidColorBrush x:Key="PanelAltBrush" Color="#142333" />
+        <SolidColorBrush x:Key="FieldBrush" Color="#0B1420" />
+        <SolidColorBrush x:Key="LineBrush" Color="#26384C" />
         <SolidColorBrush x:Key="IndustrialYellowBrush" Color="#F7C948" />
-        <SolidColorBrush x:Key="ElectricCyanBrush" Color="#22D3EE" />
-        <DropShadowEffect x:Key="SoftShadow" BlurRadius="24" Direction="270" ShadowDepth="5" Opacity="0.32" Color="#000000" />
+        <SolidColorBrush x:Key="AccentBrush" Color="#28C7A4" />
+        <SolidColorBrush x:Key="ElectricCyanBrush" Color="#38BDF8" />
+        <SolidColorBrush x:Key="DangerBrush" Color="#EF4444" />
+        <SolidColorBrush x:Key="WarningBrush" Color="#F97316" />
+        <DropShadowEffect x:Key="SoftShadow" BlurRadius="26" Direction="270" ShadowDepth="6" Opacity="0.34" Color="#000000" />
+        <DropShadowEffect x:Key="CardShadow" BlurRadius="18" Direction="270" ShadowDepth="3" Opacity="0.22" Color="#000000" />
+        <DropShadowEffect x:Key="AccentGlow" BlurRadius="20" Direction="0" ShadowDepth="0" Opacity="0.42" Color="#28C7A4" />
+        <DropShadowEffect x:Key="CyanGlow" BlurRadius="18" Direction="0" ShadowDepth="0" Opacity="0.38" Color="#38BDF8" />
+
         <Style TargetType="TextBlock">
             <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
             <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
         </Style>
+
+        <Style x:Key="CaptionText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource DimTextBrush}" />
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <Style x:Key="IconText" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+            <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+
         <Style TargetType="TextBox">
-            <Setter Property="MinHeight" Value="40" />
-            <Setter Property="Padding" Value="12,7" />
-            <Setter Property="Foreground" Value="#F7FAFC" />
-            <Setter Property="Background" Value="#101722" />
-            <Setter Property="BorderBrush" Value="#334B67" />
+            <Setter Property="MinHeight" Value="42" />
+            <Setter Property="Padding" Value="42,8,12,8" />
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="CaretBrush" Value="{StaticResource ElectricCyanBrush}" />
+            <Setter Property="Background" Value="{StaticResource FieldBrush}" />
+            <Setter Property="BorderBrush" Value="#2C4056" />
             <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="FieldChrome"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="9">
+                            <Grid>
+                                <TextBlock Text="&#xE715;"
+                                           FontFamily="Segoe MDL2 Assets"
+                                           Foreground="{StaticResource ElectricCyanBrush}"
+                                           Width="34"
+                                           HorizontalAlignment="Left"
+                                           VerticalAlignment="Center"
+                                           TextAlignment="Center" />
+                                <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" />
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="FieldChrome" Property="BorderBrush" Value="#38BDF8" />
+                                <Setter TargetName="FieldChrome" Property="Background" Value="#0E1A28" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
-        <Style TargetType="ComboBox">
-            <Setter Property="MinHeight" Value="40" />
-            <Setter Property="Padding" Value="10,5" />
-            <Setter Property="Foreground" Value="#121826" />
-            <Setter Property="Background" Value="#F7FAFC" />
-            <Setter Property="BorderBrush" Value="#33455F" />
-        </Style>
+
         <Style TargetType="PasswordBox">
-            <Setter Property="MinHeight" Value="40" />
-            <Setter Property="Padding" Value="12,7" />
-            <Setter Property="Foreground" Value="#F7FAFC" />
-            <Setter Property="Background" Value="#101722" />
-            <Setter Property="BorderBrush" Value="#334B67" />
+            <Setter Property="MinHeight" Value="42" />
+            <Setter Property="Padding" Value="42,8,12,8" />
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="CaretBrush" Value="{StaticResource ElectricCyanBrush}" />
+            <Setter Property="Background" Value="{StaticResource FieldBrush}" />
+            <Setter Property="BorderBrush" Value="#2C4056" />
             <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="PasswordBox">
+                        <Border x:Name="FieldChrome"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="9">
+                            <Grid>
+                                <TextBlock Text="&#xE72E;"
+                                           FontFamily="Segoe MDL2 Assets"
+                                           Foreground="{StaticResource ElectricCyanBrush}"
+                                           Width="34"
+                                           HorizontalAlignment="Left"
+                                           VerticalAlignment="Center"
+                                           TextAlignment="Center" />
+                                <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" />
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="FieldChrome" Property="BorderBrush" Value="#38BDF8" />
+                                <Setter TargetName="FieldChrome" Property="Background" Value="#0E1A28" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
+
         <Style TargetType="Button">
-            <Setter Property="MinHeight" Value="44" />
+            <Setter Property="MinHeight" Value="46" />
             <Setter Property="Padding" Value="18,9" />
-            <Setter Property="Foreground" Value="#F7FAFC" />
-            <Setter Property="Background" Value="#1C2A3D" />
-            <Setter Property="BorderBrush" Value="#22D3EE" />
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="Background" Value="#0F766E" />
+            <Setter Property="BorderBrush" Value="#2DD4BF" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="FontWeight" Value="SemiBold" />
@@ -62,7 +141,7 @@
                                 CornerRadius="9"
                                 SnapsToDevicePixels="True">
                             <Border.Effect>
-                                <DropShadowEffect BlurRadius="12" Direction="270" ShadowDepth="2" Opacity="0.24" Color="#000000" />
+                                <DropShadowEffect BlurRadius="16" Direction="270" ShadowDepth="3" Opacity="0.28" Color="#000000" />
                             </Border.Effect>
                             <ContentPresenter HorizontalAlignment="Center"
                                               VerticalAlignment="Center"
@@ -70,11 +149,11 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ButtonChrome" Property="Background" Value="#244464" />
+                                <Setter TargetName="ButtonChrome" Property="Background" Value="#115E59" />
                                 <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="#F7C948" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="ButtonChrome" Property="Background" Value="#102033" />
+                                <Setter TargetName="ButtonChrome" Property="Background" Value="#0B3B38" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="ButtonChrome" Property="Opacity" Value="0.55" />
@@ -84,85 +163,248 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <Storyboard x:Key="BackgroundPulse" RepeatBehavior="Forever" AutoReverse="True">
+            <DoubleAnimation Storyboard.TargetName="PulseRingA" Storyboard.TargetProperty="Opacity" From="0.16" To="0.42" Duration="0:0:2.8" />
+            <DoubleAnimation Storyboard.TargetName="PulseRingB" Storyboard.TargetProperty="Opacity" From="0.08" To="0.30" Duration="0:0:3.4" />
+            <DoubleAnimation Storyboard.TargetName="SignalLineA" Storyboard.TargetProperty="Opacity" From="0.16" To="0.55" Duration="0:0:2.2" />
+            <DoubleAnimation Storyboard.TargetName="SignalLineB" Storyboard.TargetProperty="Opacity" From="0.10" To="0.42" Duration="0:0:2.7" />
+        </Storyboard>
     </Window.Resources>
 
-    <Grid>
+    <Window.Triggers>
+        <EventTrigger RoutedEvent="Window.Loaded">
+            <BeginStoryboard Storyboard="{StaticResource BackgroundPulse}" />
+        </EventTrigger>
+    </Window.Triggers>
+
+    <Grid x:Name="RootGrid" Opacity="1">
         <Grid.Background>
             <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                <GradientStop Color="#0B1018" Offset="0" />
-                <GradientStop Color="#111827" Offset="0.52" />
-                <GradientStop Color="#06111D" Offset="1" />
+                <GradientStop Color="#061019" Offset="0" />
+                <GradientStop Color="#0A1622" Offset="0.46" />
+                <GradientStop Color="#07121B" Offset="1" />
             </LinearGradientBrush>
         </Grid.Background>
 
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="680" MaxWidth="680" />
-            <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
+        <Canvas IsHitTestVisible="False" ClipToBounds="True">
+            <Rectangle Width="1160" Height="720" Canvas.Left="-60" Canvas.Top="-20" Opacity="0.13">
+                <Rectangle.Fill>
+                    <DrawingBrush TileMode="Tile" Viewport="0,0,48,48" ViewportUnits="Absolute">
+                        <DrawingBrush.Drawing>
+                            <GeometryDrawing Brush="Transparent">
+                                <GeometryDrawing.Pen>
+                                    <Pen Brush="#38BDF8" Thickness="0.8" />
+                                </GeometryDrawing.Pen>
+                                <GeometryDrawing.Geometry>
+                                    <GeometryGroup>
+                                        <LineGeometry StartPoint="0,0" EndPoint="48,0" />
+                                        <LineGeometry StartPoint="0,0" EndPoint="0,48" />
+                                    </GeometryGroup>
+                                </GeometryDrawing.Geometry>
+                            </GeometryDrawing>
+                        </DrawingBrush.Drawing>
+                    </DrawingBrush>
+                </Rectangle.Fill>
+            </Rectangle>
 
-        <Border Grid.Column="1"
-                Grid.Row="1"
-                Background="#121A27"
-                BorderBrush="#315070"
-                BorderThickness="1"
-                CornerRadius="10"
-                Effect="{StaticResource SoftShadow}">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
+            <Ellipse x:Name="PulseRingA" Width="360" Height="360" Canvas.Left="-120" Canvas.Top="58" Stroke="#28C7A4" StrokeThickness="2" Opacity="0.18" />
+            <Ellipse x:Name="PulseRingB" Width="520" Height="520" Canvas.Left="-200" Canvas.Top="-20" Stroke="#38BDF8" StrokeThickness="1.4" Opacity="0.12" />
+            <Line x:Name="SignalLineA" X1="52" Y1="516" X2="420" Y2="170" Stroke="#28C7A4" StrokeThickness="2" Opacity="0.25" />
+            <Line x:Name="SignalLineB" X1="780" Y1="90" X2="1080" Y2="370" Stroke="#F7C948" StrokeThickness="1.4" Opacity="0.18" />
+            <Ellipse Width="8" Height="8" Canvas.Left="116" Canvas.Top="248" Fill="#28C7A4" Effect="{StaticResource AccentGlow}" />
+            <Ellipse Width="6" Height="6" Canvas.Left="742" Canvas.Top="126" Fill="#38BDF8" Effect="{StaticResource CyanGlow}" />
+            <Ellipse Width="5" Height="5" Canvas.Left="884" Canvas.Top="538" Fill="#F7C948" />
+            <Path Stroke="#24445C" StrokeThickness="1.2" Opacity="0.45" Data="M 24 612 L 190 612 L 218 586 L 330 586 L 362 552 L 468 552" />
+            <Path Stroke="#24445C" StrokeThickness="1.2" Opacity="0.35" Data="M 644 58 L 782 58 L 812 88 L 928 88 L 958 118 L 1010 118" />
+        </Canvas>
 
-                <Border Background="#172235" BorderBrush="#315070" BorderThickness="0,0,0,1" CornerRadius="10,10,0,0" Padding="28,24">
-                    <Grid>
+        <Grid Margin="36">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="420" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0"
+                    Background="#990B1622"
+                    BorderBrush="#203348"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="34"
+                    Margin="0,0,24,0"
+                    Effect="{StaticResource SoftShadow}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel>
+                        <Grid Width="56" Height="56" HorizontalAlignment="Left" Margin="0,0,0,18">
+                            <Ellipse Fill="#102538" Stroke="#2DD4BF" StrokeThickness="1.3" />
+                            <TextBlock Text="&#xE950;" Style="{StaticResource IconText}" FontSize="25" Effect="{StaticResource AccentGlow}" />
+                        </Grid>
+                        <TextBlock Text="VisualIoT SCADA" FontSize="34" FontWeight="Bold" Foreground="{StaticResource IndustrialYellowBrush}" />
+                        <TextBlock Text="Acceso seguro a monitoreo industrial, dashboards IoT y automatizacion operacional."
+                                   Foreground="{StaticResource MutedTextBrush}"
+                                   FontSize="16"
+                                   TextWrapping="Wrap"
+                                   Width="460"
+                                   HorizontalAlignment="Left"
+                                   Margin="0,10,0,0" />
+                    </StackPanel>
+
+                    <Grid Grid.Row="1" VerticalAlignment="Center">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="16" />
+                            <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="16" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
 
-                        <StackPanel>
-                            <TextBlock Text="VisualIoT SCADA" FontSize="32" FontWeight="SemiBold" Foreground="{StaticResource IndustrialYellowBrush}" />
-                            <TextBlock Text="Acceso seguro a la plataforma industrial IoT."
-                                       Foreground="{StaticResource MutedTextBrush}"
-                                       FontSize="15"
-                                       TextWrapping="Wrap"
-                                       Margin="0,8,0,0" />
-                        </StackPanel>
+                        <Border Background="#0F1F2D" BorderBrush="#25445C" BorderThickness="1" CornerRadius="10" Padding="16" Effect="{StaticResource CardShadow}">
+                            <StackPanel>
+                                <TextBlock Text="&#xE9D2;" Style="{StaticResource IconText}" FontSize="20" HorizontalAlignment="Left" Foreground="{StaticResource AccentBrush}" />
+                                <TextBlock Text="Oracle 21c" FontWeight="SemiBold" Margin="0,10,0,3" />
+                                <TextBlock Text="Persistencia industrial" Foreground="{StaticResource MutedTextBrush}" FontSize="12.5" />
+                            </StackPanel>
+                        </Border>
 
-                        <Border Grid.Column="1"
-                                Background="#123D45"
-                                BorderBrush="#22D3EE"
-                                BorderThickness="1"
-                                CornerRadius="5"
-                                Padding="14,8"
-                                VerticalAlignment="Top">
-                            <TextBlock Text="ORACLE READY" FontWeight="Bold" FontSize="12" Foreground="#DFFCF7" />
+                        <Border Grid.Column="2" Background="#0F1F2D" BorderBrush="#25445C" BorderThickness="1" CornerRadius="10" Padding="16" Effect="{StaticResource CardShadow}">
+                            <StackPanel>
+                                <TextBlock Text="&#xE7BA;" Style="{StaticResource IconText}" FontSize="20" HorizontalAlignment="Left" Foreground="{StaticResource ElectricCyanBrush}" />
+                                <TextBlock Text="SCADA Live" FontWeight="SemiBold" Margin="0,10,0,3" />
+                                <TextBlock Text="Sensores y reglas" Foreground="{StaticResource MutedTextBrush}" FontSize="12.5" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Row="2" Background="#0F1F2D" BorderBrush="#25445C" BorderThickness="1" CornerRadius="10" Padding="16" Effect="{StaticResource CardShadow}">
+                            <StackPanel>
+                                <TextBlock Text="&#xE8D7;" Style="{StaticResource IconText}" FontSize="20" HorizontalAlignment="Left" Foreground="{StaticResource IndustrialYellowBrush}" />
+                                <TextBlock Text="Alertas" FontWeight="SemiBold" Margin="0,10,0,3" />
+                                <TextBlock Text="Eventos y acciones" Foreground="{StaticResource MutedTextBrush}" FontSize="12.5" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Row="2" Grid.Column="2" Background="#0F1F2D" BorderBrush="#25445C" BorderThickness="1" CornerRadius="10" Padding="16" Effect="{StaticResource CardShadow}">
+                            <StackPanel>
+                                <TextBlock Text="&#xE8A1;" Style="{StaticResource IconText}" FontSize="20" HorizontalAlignment="Left" Foreground="{StaticResource AccentBrush}" />
+                                <TextBlock Text="Dashboards" FontWeight="SemiBold" Margin="0,10,0,3" />
+                                <TextBlock Text="Vistas persistentes" Foreground="{StaticResource MutedTextBrush}" FontSize="12.5" />
+                            </StackPanel>
                         </Border>
                     </Grid>
-                </Border>
 
-                <StackPanel Grid.Row="1" Margin="28">
-                    <TextBlock Text="Email" Foreground="{StaticResource MutedTextBrush}" FontWeight="SemiBold" Margin="0,0,0,7" />
+                    <Border Grid.Row="2" Background="#0E1B28" BorderBrush="#26384C" BorderThickness="1" CornerRadius="9" Padding="14">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="34" />
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Ellipse Width="10" Height="10" Fill="{StaticResource AccentBrush}" VerticalAlignment="Center" Effect="{StaticResource AccentGlow}" />
+                            <TextBlock Grid.Column="1" Text="Gateway industrial listo para autenticacion" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="2" Text="SECURE" Foreground="#A7F3D0" FontWeight="Bold" FontSize="11" VerticalAlignment="Center" />
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="1"
+                    Background="#E6101923"
+                    BorderBrush="#2B445D"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="28"
+                    Effect="{StaticResource SoftShadow}"
+                    VerticalAlignment="Center">
+                <StackPanel>
+                    <Border Background="#102538" BorderBrush="#2DD4BF" BorderThickness="1" CornerRadius="10" Padding="14" Margin="0,0,0,22">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="40" />
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="32" Height="32" CornerRadius="8" Background="#123A35">
+                                <TextBlock Text="&#xE72E;" Style="{StaticResource IconText}" Foreground="{StaticResource AccentBrush}" FontSize="16" />
+                            </Border>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="Acceso de operador" FontSize="18" FontWeight="SemiBold" />
+                                <TextBlock Text="Credenciales del sistema" Foreground="{StaticResource MutedTextBrush}" FontSize="12.5" Margin="0,3,0,0" />
+                            </StackPanel>
+                            <Border Grid.Column="2" Background="#1E293B" BorderBrush="#3B4D63" BorderThickness="1" CornerRadius="13" Padding="9,4" VerticalAlignment="Center">
+                                <TextBlock Text="ORACLE READY" Foreground="#BAE6FD" FontSize="10.5" FontWeight="Bold" />
+                            </Border>
+                        </Grid>
+                    </Border>
+
+                    <TextBlock Text="EMAIL" Style="{StaticResource CaptionText}" Margin="0,0,0,7" />
                     <TextBox x:Name="EmailTextBox" Text="admin@visuallot.com" FontSize="15" />
 
-                    <TextBlock Text="Contrasena" Foreground="{StaticResource MutedTextBrush}" FontWeight="SemiBold" Margin="0,18,0,7" />
+                    <TextBlock Text="CONTRASENA" Style="{StaticResource CaptionText}" Margin="0,18,0,7" />
                     <PasswordBox x:Name="PasswordBox" FontSize="15" />
 
                     <TextBlock x:Name="LoginStatusTextBlock"
                                Text=""
-                               Foreground="#FF6A6A"
+                               Foreground="{StaticResource DangerBrush}"
                                TextWrapping="Wrap"
-                               Margin="0,14,0,18" />
+                               Visibility="Collapsed"
+                               Margin="0,12,0,0" />
 
                     <Button x:Name="LoginButton"
-                            Content="Ingresar a proyectos"
-                            Click="LoginButton_Click" />
+                            Click="LoginButton_Click"
+                            Margin="0,24,0,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE8A7;" FontFamily="Segoe MDL2 Assets" Margin="0,0,9,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Ingresar a proyectos" />
+                        </StackPanel>
+                    </Button>
+
+                    <Grid Margin="0,18,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Sesion protegida por roles" Foreground="{StaticResource DimTextBrush}" FontSize="12" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                            <Ellipse Width="7" Height="7" Fill="{StaticResource AccentBrush}" Margin="0,0,7,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Activo" Foreground="{StaticResource MutedTextBrush}" FontSize="12" />
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <Border x:Name="LoginToast"
+                Width="390"
+                Background="#F00E1824"
+                BorderBrush="#38BDF8"
+                BorderThickness="1"
+                CornerRadius="10"
+                Padding="14"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Margin="0,22,28,0"
+                Visibility="Collapsed"
+                Opacity="0"
+                Effect="{StaticResource SoftShadow}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="38" />
+                    <ColumnDefinition />
+                </Grid.ColumnDefinitions>
+                <Border Width="30" Height="30" CornerRadius="8" Background="#102538" VerticalAlignment="Top">
+                    <TextBlock x:Name="ToastIconTextBlock" Text="&#xE946;" Style="{StaticResource IconText}" FontSize="15" Foreground="{StaticResource ElectricCyanBrush}" />
+                </Border>
+                <StackPanel Grid.Column="1">
+                    <TextBlock x:Name="ToastTitleTextBlock" Text="Validando acceso" FontWeight="SemiBold" />
+                    <TextBlock x:Name="ToastMessageTextBlock" Text="Comprobando credenciales..." Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" Margin="0,3,0,0" />
                 </StackPanel>
             </Grid>
         </Border>

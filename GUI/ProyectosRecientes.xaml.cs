@@ -21,7 +21,7 @@ namespace GUI
         {
             _usuario = usuario;
             InitializeComponent();
-            ResponsiveWindowHelper.Ajustar(this, 1040, 680);
+            ResponsiveWindowHelper.Ajustar(this, 1180, 720);
             Projects = new ObservableCollection<ProyectoListItem>();
             Dashboards = new ObservableCollection<DashboardListItem>();
             DataContext = this;
@@ -48,6 +48,8 @@ namespace GUI
             {
                 StatusTextBlock.Text = "No hay proyectos creados para este usuario.";
             }
+
+            UpdateProjectSummary();
         }
 
         private void ProjectsListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -71,6 +73,7 @@ namespace GUI
             }
 
             StatusTextBlock.Text = Dashboards.Count + " dashboards disponibles.";
+            UpdateWorkspaceSummary();
         }
 
         private void CreateProjectButton_Click(object sender, RoutedEventArgs e)
@@ -88,6 +91,7 @@ namespace GUI
                 Projects.Insert(0, item);
                 ProjectsListBox.SelectedItem = item;
                 StatusTextBlock.Text = "Proyecto creado.";
+                UpdateProjectSummary();
             }
             catch (Exception ex)
             {
@@ -109,6 +113,7 @@ namespace GUI
                 var item = new DashboardListItem(dashboard);
                 Dashboards.Insert(0, item);
                 _selectedProject.CantidadDashboards++;
+                UpdateWorkspaceSummary();
                 OpenDashboard(item);
             }
             catch (Exception ex)
@@ -170,6 +175,30 @@ namespace GUI
             });
             window.Show();
             Close();
+        }
+
+        private void UpdateProjectSummary()
+        {
+            var projectText = Projects.Count == 1 ? "1 proyecto industrial" : Projects.Count + " proyectos industriales";
+            ProjectsSummaryTextBlock.Text = projectText + " del usuario autenticado";
+            UpdateWorkspaceSummary();
+        }
+
+        private void UpdateWorkspaceSummary()
+        {
+            var totalDashboards = Projects.Sum(p => p.CantidadDashboards);
+            var projectText = Projects.Count == 1 ? "1 proyecto" : Projects.Count + " proyectos";
+            var dashboardText = totalDashboards == 1 ? "1 dashboard" : totalDashboards + " dashboards";
+            WorkspaceStatsTextBlock.Text = projectText + " / " + dashboardText;
+
+            if (_selectedProject == null)
+            {
+                DashboardsSummaryTextBlock.Text = "Selecciona un proyecto para ver sus dashboards";
+                return;
+            }
+
+            var currentDashboards = Dashboards.Count == 1 ? "1 dashboard disponible" : Dashboards.Count + " dashboards disponibles";
+            DashboardsSummaryTextBlock.Text = currentDashboards + " para esta linea industrial";
         }
     }
 
@@ -270,5 +299,6 @@ namespace GUI
                 return null;
             }
         }
+
     }
 }

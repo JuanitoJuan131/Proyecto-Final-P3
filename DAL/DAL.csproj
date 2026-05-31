@@ -82,7 +82,6 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Class1.cs" />
     <Compile Include="Data\OracleConexion.cs" />
     <Compile Include="Repositories\IRepositorio.cs" />
     <Compile Include="Repositories\RepositorioOracleBase.cs" />

@@ -57,7 +57,6 @@
     <Compile Include="Simulation\SimulationManager.cs" />
     <Compile Include="Simulation\TagValueGenerator.cs" />
     <Compile Include="Simulation\TelemetryDispatcher.cs" />
-    <Compile Include="Class1.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

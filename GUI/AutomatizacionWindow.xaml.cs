@@ -23,7 +23,7 @@ namespace GUI
         {
             _idDashboard = idDashboard;
             InitializeComponent();
-            ResponsiveWindowHelper.Ajustar(this, 900, 620);
+            ResponsiveWindowHelper.Ajustar(this, 1240, 760);
             Rules = new ObservableCollection<AutomationRuleListItem>();
             DataContext = this;
             LoadTags();
@@ -252,6 +252,10 @@ namespace GUI
             NotificationTextBlock.Foreground = success
                 ? new SolidColorBrush(Color.FromRgb(223, 252, 246))
                 : new SolidColorBrush(Color.FromRgb(254, 226, 226));
+            NotificationIconTextBlock.Text = success ? "\uE930" : "\uE783";
+            NotificationIconTextBlock.Foreground = success
+                ? new SolidColorBrush(Color.FromRgb(45, 212, 191))
+                : new SolidColorBrush(Color.FromRgb(239, 68, 68));
             NotificationBorder.Background = success
                 ? new SolidColorBrush(Color.FromRgb(18, 59, 54))
                 : new SolidColorBrush(Color.FromRgb(50, 24, 32));
