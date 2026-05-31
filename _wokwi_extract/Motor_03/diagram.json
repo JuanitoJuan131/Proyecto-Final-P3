@@ -1,0 +1,119 @@
+{
+  "version": 1,
+  "author": "Juan Camilo M.B",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": 38.4, "left": 14.44, "attrs": {} },
+    { "type": "wokwi-hc-sr04", "id": "tankSensor", "top": -180, "left": 90, "attrs": {} },
+    {
+      "type": "board-ssd1306",
+      "id": "oled1",
+      "top": 252.74,
+      "left": -124.57,
+      "attrs": { "i2cAddress": "0x3c" }
+    },
+    {
+      "type": "wokwi-potentiometer",
+      "id": "pot1",
+      "top": 180,
+      "left": -220,
+      "rotate": 180,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-ds18b20",
+      "id": "temp1",
+      "top": 250,
+      "left": 240,
+      "rotate": 180,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "btn1",
+      "top": 297.7,
+      "left": 44.7,
+      "rotate": 270,
+      "attrs": { "color": "red", "xray": "1" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "ledGreen",
+      "top": -70,
+      "left": -40,
+      "attrs": { "color": "limegreen" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "ledYellow",
+      "top": -70,
+      "left": 10,
+      "attrs": { "color": "yellow" }
+    },
+    { "type": "wokwi-led", "id": "ledRed", "top": -70, "left": 60, "attrs": { "color": "red" } },
+    {
+      "type": "wokwi-resistor",
+      "id": "r1",
+      "top": 20,
+      "left": -35,
+      "rotate": 270,
+      "attrs": { "value": "220" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r2",
+      "top": 20,
+      "left": 15,
+      "rotate": 270,
+      "attrs": { "value": "220" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r3",
+      "top": 20,
+      "left": 65,
+      "rotate": 270,
+      "attrs": { "value": "220" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r4",
+      "top": 310,
+      "left": 170,
+      "rotate": 270,
+      "attrs": { "value": "4700" }
+    }
+  ],
+  "connections": [
+    [ "esp:TX", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX", "$serialMonitor:TX", "", [] ],
+    [ "oled1:VCC", "esp:3V3", "red", [] ],
+    [ "oled1:GND", "esp:GND.1", "black", [] ],
+    [ "oled1:SDA", "esp:21", "green", [] ],
+    [ "oled1:SCL", "esp:22", "green", [] ],
+    [ "pot1:VCC", "esp:3V3", "red", [] ],
+    [ "pot1:GND", "esp:GND.1", "black", [] ],
+    [ "pot1:SIG", "esp:34", "green", [] ],
+    [ "tankSensor:VCC", "esp:5V", "red", [] ],
+    [ "tankSensor:GND", "esp:GND.1", "black", [] ],
+    [ "tankSensor:TRIG", "esp:5", "green", [] ],
+    [ "tankSensor:ECHO", "esp:18", "green", [] ],
+    [ "temp1:VCC", "esp:3V3", "red", [] ],
+    [ "temp1:GND", "esp:GND.2", "black", [] ],
+    [ "temp1:DQ", "esp:4", "green", [] ],
+    [ "esp:3V3", "r4:2", "green", [] ],
+    [ "r4:1", "temp1:DQ", "green", [] ],
+    [ "btn1:1.l", "esp:27", "green", [] ],
+    [ "btn1:1.r", "esp:GND.1", "green", [] ],
+    [ "esp:15", "r1:1", "green", [] ],
+    [ "r1:2", "ledGreen:A", "green", [] ],
+    [ "esp:2", "r2:1", "green", [] ],
+    [ "r2:2", "ledYellow:A", "green", [] ],
+    [ "esp:13", "r3:1", "green", [] ],
+    [ "r3:2", "ledRed:A", "green", [] ],
+    [ "ledGreen:C", "esp:GND.2", "black", [] ],
+    [ "ledYellow:C", "esp:GND.2", "black", [] ],
+    [ "ledRed:C", "esp:GND.2", "black", [] ]
+  ],
+  "dependencies": {}
+}
