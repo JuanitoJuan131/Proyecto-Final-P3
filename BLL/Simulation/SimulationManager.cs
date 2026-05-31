@@ -135,6 +135,7 @@ namespace BLL.Simulation
             Engine.AddMotor(new TelemetriaMotor("MOTOR_02", "Extractor principal", "Extraccion"));
             Engine.AddMotor(new TelemetriaMotor("MOTOR_03", "Bomba de pulpa", "Filtrado"));
             Engine.AddMotor(new TelemetriaMotor("MOTOR_04", "Llenadora rotativa", "Envasado"));
+            Engine.AddMotor(new TelemetriaMotor("TANQUE_01", "Tanque de lubricacion", "Lubricacion industrial"));
         }
 
         private void OnSimulatorTagUpdated(string tag, object value)
@@ -201,9 +202,15 @@ namespace BLL.Simulation
                 }
 
                 device = NormalizeDeviceId(device);
+                Trace.TraceInformation("MQTT telemetry mapped from {0} to device {1}", topic, device);
                 UpdateMappedTag(device, "RPM", GetFirst(values, "rpm", "RPM"));
                 UpdateMappedTag(device, "Temperatura", GetFirst(values, "temperatura", "temp", "temperature"));
                 UpdateMappedTag(device, "Nivel", GetFirst(values, "nivelTanque", "nivel", "level"));
+                UpdateMappedTag(device, "Presion", GetFirst(values, "presion", "pressure"));
+                UpdateMappedTag(device, "Vibracion", GetFirst(values, "vibracion", "vibration"));
+                UpdateMappedTag(device, "Corriente", GetFirst(values, "corriente", "current"));
+                UpdateMappedTag(device, "Voltaje", GetFirst(values, "voltaje", "voltage"));
+                UpdateMappedTag(device, "Eficiencia", GetFirst(values, "eficiencia", "efficiency"));
                 UpdateMappedTag(device, "Estado", NormalizeState(GetFirst(values, "estado", "state")));
                 UpdateMappedTag(device, "Alarma", ResolveAlarmText(values));
                 return true;
@@ -277,23 +284,50 @@ namespace BLL.Simulation
 
         private static string ResolveDeviceFromTopic(string topic)
         {
-            var last = string.IsNullOrWhiteSpace(topic) ? string.Empty : topic.Split('/').LastOrDefault();
+            var parts = string.IsNullOrWhiteSpace(topic)
+                ? new string[0]
+                : topic.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+            var last = parts.LastOrDefault();
             if (string.IsNullOrWhiteSpace(last))
             {
                 return string.Empty;
             }
 
-            return last.StartsWith("motor", StringComparison.OrdinalIgnoreCase)
-                ? "MOTOR_" + last.Substring(5).PadLeft(2, '0')
-                : last.ToUpperInvariant();
+            if (last.StartsWith("motor", StringComparison.OrdinalIgnoreCase))
+            {
+                return "MOTOR_" + last.Substring(5).PadLeft(2, '0');
+            }
+
+            if (last.StartsWith("tanque", StringComparison.OrdinalIgnoreCase))
+            {
+                return "TANQUE_" + last.Substring(6).PadLeft(2, '0');
+            }
+
+            return NormalizeDeviceId(last);
         }
 
         private static string NormalizeDeviceId(string device)
         {
             device = (device ?? string.Empty).Trim();
+            if (device.Equals("MOTOR_01_TANQUE", StringComparison.OrdinalIgnoreCase))
+            {
+                return "TANQUE_01";
+            }
+
+            var separator = device.IndexOfAny(new[] { '-', ' ', ':' });
+            if (separator > 0)
+            {
+                device = device.Substring(0, separator);
+            }
+
             if (device.StartsWith("motor", StringComparison.OrdinalIgnoreCase) && device.IndexOf('_') < 0)
             {
                 return "MOTOR_" + device.Substring(5).PadLeft(2, '0');
+            }
+
+            if (device.StartsWith("tanque", StringComparison.OrdinalIgnoreCase) && device.IndexOf('_') < 0)
+            {
+                return "TANQUE_" + device.Substring(6).PadLeft(2, '0');
             }
 
             return device.ToUpperInvariant();

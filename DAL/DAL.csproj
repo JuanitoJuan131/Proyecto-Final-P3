@@ -85,8 +85,19 @@
     <Compile Include="Data\OracleConexion.cs" />
     <Compile Include="Repositories\IRepositorio.cs" />
     <Compile Include="Repositories\RepositorioOracleBase.cs" />
-    <Compile Include="Repositories\RepositoriosVisualLot.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Repositories\UsuarioRepositorio.cs" />
+    <Compile Include="Repositories\ProyectoRepositorio.cs" />
+    <Compile Include="Repositories\DashboardRepositorio.cs" />
+    <Compile Include="Repositories\DispositivoRepositorio.cs" />
+    <Compile Include="Repositories\MotorRepositorio.cs" />
+    <Compile Include="Repositories\TagDatoRepositorio.cs" />
+    <Compile Include="Repositories\WidgetRepositorio.cs" />
+    <Compile Include="Repositories\ReglaRepositorio.cs" />
+    <Compile Include="Repositories\CondicionRepositorio.cs" />
+    <Compile Include="Repositories\AccionRepositorio.cs" />
+    <Compile Include="Repositories\HistoricoMedicionRepositorio.cs" />
+    <Compile Include="Repositories\HistorialEventoRepositorio.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ENTITY\ENTITY.csproj">

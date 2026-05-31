@@ -17,8 +17,10 @@ namespace BLL.Mqtt
     public class MqttTelemetryService
     {
         private readonly SemaphoreSlim _connectionGate = new SemaphoreSlim(1, 1);
+        private readonly HashSet<string> _activeSubscriptions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private IMqttClient _client;
         private string _clientId;
+        private bool _manualDisconnectRequested;
 
         public bool IsConnected
         {
@@ -40,6 +42,8 @@ namespace BLL.Mqtt
                     return;
                 }
 
+                _manualDisconnectRequested = false;
+                _activeSubscriptions.Clear();
                 var factory = new MqttFactory();
                 _client = factory.CreateMqttClient();
                 _clientId = "VisualIoTDesktop-" + Environment.MachineName + "-" + Guid.NewGuid().ToString("N").Substring(0, 8);
@@ -51,8 +55,11 @@ namespace BLL.Mqtt
                 });
                 _client.UseDisconnectedHandler(e =>
                 {
-                    var reason = e.Exception == null ? "Desconectado" : e.Exception.Message;
-                    Trace.TraceWarning("MQTT disconnected: {0}", reason);
+                    _activeSubscriptions.Clear();
+                    var reason = _manualDisconnectRequested
+                        ? "Desconectado manualmente"
+                        : e.Exception == null ? "Desconectado" : e.Exception.Message;
+                    Trace.TraceWarning("MQTT disconnected for client {0}: {1}", _clientId, reason);
                     ConnectionChanged?.Invoke(false, reason);
                 });
                 _client.UseApplicationMessageReceivedHandler(e =>
@@ -69,7 +76,6 @@ namespace BLL.Mqtt
                 {
                     try
                     {
-                        ConnectionChanged?.Invoke(false, "Conectando a " + endpoint.Host + ":" + endpoint.Port);
                         Trace.TraceInformation("MQTT connecting to {0}:{1}", endpoint.Host, endpoint.Port);
 
                         var options = new MqttClientOptionsBuilder()
@@ -106,11 +112,25 @@ namespace BLL.Mqtt
         {
             if (!IsConnected)
             {
+                Trace.TraceWarning("MQTT subscribe skipped because client is disconnected. Topic: {0}", topic);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(topic))
+            {
+                Trace.TraceWarning("MQTT subscribe skipped because topic is empty.");
+                return;
+            }
+
+            if (_activeSubscriptions.Contains(topic))
+            {
+                Trace.TraceInformation("MQTT subscription already active for {0}", topic);
                 return;
             }
 
             Trace.TraceInformation("MQTT subscribing to {0}", topic);
             await _client.SubscribeAsync(topic);
+            _activeSubscriptions.Add(topic);
         }
 
         public async Task PublishAsync(string topic, object value)
@@ -136,8 +156,14 @@ namespace BLL.Mqtt
             {
                 if (_client != null && _client.IsConnected)
                 {
+                    _manualDisconnectRequested = true;
                     Trace.TraceInformation("MQTT manual disconnect");
                     await _client.DisconnectAsync();
+                }
+                else
+                {
+                    _activeSubscriptions.Clear();
+                    ConnectionChanged?.Invoke(false, "Desconectado manualmente");
                 }
             }
             finally

@@ -8,8 +8,8 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 
- // OLED
- 
+// ================= OLED =================
+
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
 
@@ -18,24 +18,23 @@ Adafruit_SSD1306 display(
   SCREEN_HEIGHT,
   &Wire,
   -1
-);
+  );
 
- // WIFI
- 
+// ================= WIFI =================
+
 const char* ssid = "Wokwi-GUEST";
 const char* password = "";
 
- // MQTT
- 
+// ================= MQTT =================
+
+// Broker público de pruebas
 const char* mqtt_server = "broker.hivemq.com";
-const char* mqtt_topic = "visualiot/tanques/tanque01";
-const char* device_id = "TANQUE_01";
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 
- // PINES
- 
+// ================= PINES =================
+
 #define PIN_TEMP 4
 
 #define PIN_LED_GREEN 15
@@ -49,79 +48,69 @@ PubSubClient client(espClient);
 
 #define PIN_RPM 34
 
- // TEMPERATURA
- 
+// ================= TEMPERATURA =================
+
 OneWire oneWire(PIN_TEMP);
 
 DallasTemperature sensors(&oneWire);
 
- // VARIABLES
- 
+// ================= VARIABLES =================
+
 float temperatura = 0;
-
 int rpm = 0;
-
-float nivelTanque = 0;
+float nivel = 0;
 
 bool alarma = false;
 
 String estado = "RUNNING";
 
- // SETUP
- 
+// ======================================================
+
 void setup()
 {
   Serial.begin(115200);
 
   // LEDs
-
   pinMode(PIN_LED_GREEN, OUTPUT);
   pinMode(PIN_LED_YELLOW, OUTPUT);
   pinMode(PIN_LED_RED, OUTPUT);
 
-  // Botón emergencia
-
+  // Botón
   pinMode(PIN_BUTTON, INPUT_PULLUP);
 
   // Ultrasonido
-
   pinMode(PIN_TRIG, OUTPUT);
   pinMode(PIN_ECHO, INPUT);
 
   // OLED
-
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
   {
-    Serial.println("ERROR OLED");
-
+    Serial.println("OLED ERROR");
     while (true);
   }
 
   display.clearDisplay();
-
   display.setTextColor(WHITE);
 
   // Sensor temperatura
-
   sensors.begin();
 
   // WIFI
-
   conectarWiFi();
 
   // MQTT
-
   client.setServer(mqtt_server, 1883);
-  client.setKeepAlive(30);
-  client.setSocketTimeout(10);
 
-  mostrarMensaje("VisualIoT Ready");
+  mostrarMensaje("Sistema iniciado");
 }
 
- // LOOP
- 
+// ======================================================
+
 void loop()
 {
+  
+  verificarWiFi();
+
   if (!client.connected())
   {
     reconnectMQTT();
@@ -142,8 +131,10 @@ void loop()
   delay(1000);
 }
 
- // WIFI
- 
+// ======================================================
+//WIFI
+
+
 void conectarWiFi()
 {
   WiFi.begin(ssid, password);
@@ -151,156 +142,137 @@ void conectarWiFi()
   while (WiFi.status() != WL_CONNECTED)
   {
     delay(500);
-
-    Serial.print(".");
   }
-
-  Serial.println("");
-
-  Serial.println("WIFI CONECTADO");
 }
 
- // MQTT
- 
+void verificarWiFi()
+{
+  if (WiFi.status() == WL_CONNECTED)
+  {
+    return;
+  }
+
+  Serial.println("WiFi desconectado. Reconectando...");
+
+  WiFi.disconnect();
+  WiFi.begin(ssid, password);
+
+  int intentos = 0;
+
+  while (WiFi.status() != WL_CONNECTED && intentos < 20)
+  {
+    delay(500);
+    Serial.print(".");
+    intentos++;
+  }
+
+  if (WiFi.status() == WL_CONNECTED)
+  {
+    Serial.println("\nWiFi reconectado");
+  }
+  else
+  {
+    Serial.println("\nNo fue posible reconectar WiFi");
+  }
+}
+
+// ======================================================
+
+
+
 void reconnectMQTT()
 {
-  while (!client.connected())
-  {
-    Serial.println("Conectando MQTT...");
+    if(WiFi.status() != WL_CONNECTED)
+    {
+      return;
+    }
+    
+    if(client.connected())
+        return;
 
-    String clientId = "VisualIoT_";
-    clientId += device_id;
-    clientId += "_";
+    String clientId = "VisualIoT_MOTOR_02_";
     clientId += WiFi.macAddress();
     clientId.replace(":", "");
 
-    if (client.connect(clientId.c_str()))
+    if(client.connect(clientId.c_str()))
     {
-      Serial.println("MQTT CONECTADO");
+        Serial.println("MQTT conectado");
     }
     else
     {
-      Serial.println("Error MQTT");
-
-      delay(2000);
+        Serial.print("Error MQTT: ");
+        Serial.println(client.state());
     }
-  }
 }
+// ======================================================
 
- // LEER SENSORES
- 
 void leerSensores()
 {
-   // RPM
- 
+  // ===== RPM =====
+
   int valorPot = analogRead(PIN_RPM);
 
   rpm = map(valorPot, 0, 4095, 0, 2000);
 
-   // TEMPERATURA
- 
+  // ===== TEMPERATURA =====
+
   sensors.requestTemperatures();
 
   temperatura = sensors.getTempCByIndex(0);
 
-   // NIVEL TANQUE
- 
-  digitalWrite(PIN_TRIG, LOW);
+  // ===== NIVEL =====
 
+  digitalWrite(PIN_TRIG, LOW);
   delayMicroseconds(2);
 
   digitalWrite(PIN_TRIG, HIGH);
-
   delayMicroseconds(10);
 
   digitalWrite(PIN_TRIG, LOW);
 
   long duration = pulseIn(PIN_ECHO, HIGH);
 
-  nivelTanque = duration * 0.034 / 2;
+  nivel = duration * 0.034 / 2;
 
-  nivelTanque = map(nivelTanque, 2, 400, 100, 0);
+  nivel = map(nivel, 2, 400, 100, 0);
 
-  // Limitar valores
+  // ===== BOTON =====
 
-  if (nivelTanque > 100)
-  {
-    nivelTanque = 100;
-  }
-
-  if (nivelTanque < 0)
-  {
-    nivelTanque = 0;
-  }
-
-   // BOTON EMERGENCIA
- 
   if (digitalRead(PIN_BUTTON) == LOW)
   {
     alarma = true;
-
     estado = "FAULT";
   }
 }
 
- // VERIFICAR ALARMAS
- 
+// ======================================================
+
 void verificarAlarmas()
 {
-  alarma = false;
-
-  estado = "RUNNING";
-
-   // TEMPERATURA
- 
   if (temperatura > 80)
   {
     alarma = true;
-
     estado = "WARNING";
   }
 
   if (temperatura > 100)
   {
     alarma = true;
-
     estado = "FAULT";
   }
 
-   // NIVEL TANQUE
- 
-  if (nivelTanque < 40)
+  if (!alarma)
   {
-    alarma = true;
-
-    estado = "WARNING";
-  }
-
-  if (nivelTanque < 20)
-  {
-    alarma = true;
-
-    estado = "FAULT";
-  }
-
-   // BOTON EMERGENCIA
- 
-  if (digitalRead(PIN_BUTTON) == LOW)
-  {
-    alarma = true;
-
-    estado = "FAULT";
+    estado = "RUNNING";
   }
 }
 
- // LEDS
- 
+// ======================================================
+
 void actualizarLEDs()
 {
   digitalWrite(PIN_LED_GREEN, LOW);
-
   digitalWrite(PIN_LED_YELLOW, LOW);
-
   digitalWrite(PIN_LED_RED, LOW);
 
   if (estado == "RUNNING")
@@ -317,8 +289,8 @@ void actualizarLEDs()
   }
 }
 
- // OLED
- 
+// ======================================================
+
 void actualizarOLED()
 {
   display.clearDisplay();
@@ -326,65 +298,55 @@ void actualizarOLED()
   display.setTextSize(1);
 
   display.setCursor(0, 0);
-  display.println("VisualIoT MOTOR_01");
+  display.println("VisualIoT Node");
 
-  display.setCursor(0, 14);
+  display.setCursor(0, 15);
   display.print("RPM: ");
   display.println(rpm);
 
-  display.setCursor(0, 26);
+  display.setCursor(0, 28);
   display.print("Temp: ");
-  display.print(temperatura);
-  display.println(" C");
+  display.println(temperatura);
 
-  display.setCursor(0, 38);
-  display.print("Tanque: ");
-  display.print(nivelTanque);
-  display.println("%");
+  display.setCursor(0, 41);
+  display.print("Nivel: ");
+  display.println(nivel);
 
-  display.setCursor(0, 50);
+  display.setCursor(0, 54);
   display.print("Estado: ");
   display.println(estado);
 
   display.display();
 }
 
- // MQTT JSON
- 
+// ======================================================
+
 void publicarMQTT()
 {
   String payload = "{";
 
-  payload += "\"device\":\"" + String(device_id) + "\",";
-  
-  payload += "\"nombre\":\"Motor Principal\",";
-  
-  payload += "\"tipo\":\"Tanque Lubricacion\",";
-  
+  payload += "\"device\":\"MOTOR_02\",";
   payload += "\"rpm\":" + String(rpm) + ",";
-  
-  payload += "\"temperatura\":" + String(temperatura) + ",";
-  
-  payload += "\"nivelTanque\":" + String(nivelTanque) + ",";
-  
+  payload += "\"temp\":" + String(temperatura) + ",";
+  payload += "\"nivel\":" + String(nivel) + ",";
   payload += "\"estado\":\"" + estado + "\",";
-  
   payload += "\"alarma\":" + String(alarma ? "true" : "false");
 
   payload += "}";
 
-  client.publish(mqtt_topic, payload.c_str());
+  client.publish(
+    "visualiot/motores/motor02",
+    payload.c_str()
+  );
 
   Serial.println(payload);
 }
 
- // OLED MENSAJE
- 
+// ======================================================
+
 void mostrarMensaje(String texto)
 {
   display.clearDisplay();
-
-  display.setTextSize(1);
 
   display.setCursor(0, 20);
 

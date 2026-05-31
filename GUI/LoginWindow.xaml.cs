@@ -7,7 +7,7 @@ using System.Windows;
 
 namespace GUI
 {
-    public partial class LoginWindow : Window
+    public partial class LoginWindow : Window 
     {
         private readonly AutenticacionService _autenticacionService = new AutenticacionService();
 
