@@ -23,13 +23,16 @@ namespace GUI
 {
     public partial class MainWindow : Window
     {
-        private const int CellSize = 88;
+        private const int CellSize = 80;
+        private static readonly TimeSpan DeviceOfflineTimeout = TimeSpan.FromSeconds(8);
         private readonly AutomationRuleService _automationService = new AutomationRuleService();
         private readonly DashboardWorkspaceService _dashboardService = new DashboardWorkspaceService();
         private readonly SimulationManager _simulationManager = new SimulationManager();
         private readonly DispatcherTimer _clockTimer = new DispatcherTimer();
+        private readonly DispatcherTimer _deviceHealthTimer = new DispatcherTimer();
         private readonly Dictionary<string, MotorCardViewModel> _motorMap = new Dictionary<string, MotorCardViewModel>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, TagRowViewModel> _tagRows = new Dictionary<string, TagRowViewModel>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, DateTime> _lastSeenByMotor = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, DateTime> _lastAutomationEvaluation = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, List<DashboardWidgetLayout>> _motorLayouts = new Dictionary<string, List<DashboardWidgetLayout>>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, ObservableCollection<AlarmEventViewModel>> _alarmHistoryByMotor = new Dictionary<string, ObservableCollection<AlarmEventViewModel>>(StringComparer.OrdinalIgnoreCase);
@@ -41,6 +44,7 @@ namespace GUI
         private bool _simulationRunning = true;
         private bool _autoShutdownOnCritical = true;
         private bool _mqttReconnectPending;
+        private bool _manualMqttDisconnect;
         private string _lastMqttServer;
         private int _lastMqttPort;
         private string _lastMqttTopic;
@@ -86,6 +90,7 @@ namespace GUI
             _simulationManager.MqttMessageReceived += SimulationManager_MqttMessageReceived;
             _simulationManager.PersistenceWarning += SimulationManager_PersistenceWarning;
             _simulationManager.TagsCleared += SimulationManager_TagsCleared;
+            _simulationManager.MotorTagsCleared += SimulationManager_MotorTagsCleared;
             _simulationManager.StartSimulation();
 
             _clockTimer.Interval = TimeSpan.FromSeconds(1);
@@ -94,18 +99,27 @@ namespace GUI
                     + "  |  " + Tags.Count + " tags activos"
                     + "  |  MQTT mensajes: " + _mqttMessageCount;
             _clockTimer.Start();
+            _deviceHealthTimer.Interval = TimeSpan.FromSeconds(1);
+            _deviceHealthTimer.Tick += DeviceHealthTimer_Tick;
+            _deviceHealthTimer.Start();
             AddEvent("Simulacion industrial iniciada");
         }
 
         private async void Window_Closing(object sender, CancelEventArgs e)
         {
             _simulationManager.StopSimulation();
+            _deviceHealthTimer.Stop();
             await _simulationManager.Mqtt.DisconnectAsync();
         }
 
         private async void ConnectButton_Click(object sender, RoutedEventArgs e)
         {
             await ConnectMqttAsync();
+        }
+
+        private async void DisconnectMqttButton_Click(object sender, RoutedEventArgs e)
+        {
+            await DisconnectMqttAsync(true);
         }
 
         private async Task ConnectMqttAsync()
@@ -133,6 +147,8 @@ namespace GUI
 
                 _simulationManager.UseMqttTelemetry(true);
                 _simulationManager.ClearTags();
+                _lastSeenByMotor.Clear();
+                _manualMqttDisconnect = false;
 
                 _lastMqttServer = BrokerTextBox.Text.Trim();
                 _lastMqttPort = port;
@@ -167,6 +183,54 @@ namespace GUI
             }
         }
 
+        private async Task DisconnectMqttAsync(bool manual)
+        {
+            try
+            {
+                _manualMqttDisconnect = manual;
+                _mqttReconnectPending = false;
+                ConnectButton.IsEnabled = false;
+                DisconnectMqttButton.IsEnabled = false;
+
+                await _simulationManager.DisconnectMqttAsync();
+                _simulationManager.UseMqttTelemetry(false);
+                _simulationManager.ClearTags();
+                ConnectionStatusTextBlock.Text = manual ? "MQTT desconectado manualmente" : "MQTT desconectado";
+                ConnectionStatusTextBlock.Foreground = new SolidColorBrush(Color.FromRgb(182, 193, 208));
+                StatusBarTextBlock.Text = "Recepcion MQTT detenida";
+                AddEvent(manual ? "MQTT desconectado manualmente" : "MQTT desconectado");
+            }
+            catch (Exception ex)
+            {
+                StatusBarTextBlock.Text = "Error al desconectar MQTT: " + ex.Message;
+                AddEvent("Error al desconectar MQTT: " + ex.Message);
+            }
+            finally
+            {
+                ConnectButton.IsEnabled = true;
+                DisconnectMqttButton.IsEnabled = true;
+            }
+        }
+
+        private void DeviceHealthTimer_Tick(object sender, EventArgs e)
+        {
+            if (!_simulationManager.MqttTelemetryActive)
+            {
+                return;
+            }
+
+            var now = DateTime.Now;
+            foreach (var entry in _lastSeenByMotor.ToList())
+            {
+                if (now - entry.Value > DeviceOfflineTimeout)
+                {
+                    AddEvent("Dispositivo inactivo: " + entry.Key);
+                    _lastSeenByMotor.Remove(entry.Key);
+                    _simulationManager.ClearMotorTags(entry.Key);
+                }
+            }
+        }
+
         private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Delete && _selectedWidget != null)
@@ -187,6 +251,7 @@ namespace GUI
             }
             else
             {
+                _manualMqttDisconnect = true;
                 _simulationManager.UseMqttTelemetry(false);
                 _simulationManager.StartSimulation();
                 _simulationRunning = true;
@@ -224,10 +289,7 @@ namespace GUI
         {
             if (_simulationManager.MqttTelemetryActive)
             {
-                await _simulationManager.DisconnectMqttAsync();
-                ConnectionStatusTextBlock.Text = "MQTT desconectado";
-                ConnectionStatusTextBlock.Foreground = new SolidColorBrush(Color.FromRgb(182, 193, 208));
-                AddEvent("Recepcion MQTT desconectada para control seguro");
+                await DisconnectMqttAsync(true);
                 return;
             }
 
@@ -415,7 +477,7 @@ namespace GUI
                 {
                     _mqttReconnectPending = false;
                 }
-                else if (_simulationManager.MqttTelemetryActive && !_mqttReconnectPending)
+                else if (_simulationManager.MqttTelemetryActive && !_manualMqttDisconnect && !_mqttReconnectPending)
                 {
                     ScheduleMqttReconnect();
                 }
@@ -445,7 +507,7 @@ namespace GUI
                 {
                     _mqttReconnectPending = false;
                     AddEvent("Fallo de reconexion MQTT: " + ex.Message);
-                    if (_simulationManager.MqttTelemetryActive)
+                    if (_simulationManager.MqttTelemetryActive && !_manualMqttDisconnect)
                     {
                         ScheduleMqttReconnect();
                     }
@@ -475,6 +537,12 @@ namespace GUI
         {
             Dispatcher.Invoke(() =>
             {
+                var motorId = MotorIdFromTag(tag);
+                if (!string.IsNullOrWhiteSpace(motorId))
+                {
+                    _lastSeenByMotor[motorId] = DateTime.Now;
+                }
+
                 UpdateMotorCards(tag, value);
 
                 if (!IsSelectedMotorTag(tag))
@@ -617,6 +685,16 @@ namespace GUI
                 {
                     EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
                 });
+
+                var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
+                timer.Tick += (sender, args) =>
+                {
+                    timer.Stop();
+                    var fade = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(240));
+                    fade.Completed += (s, e) => AlertPopup.Visibility = Visibility.Collapsed;
+                    AlertPopup.BeginAnimation(OpacityProperty, fade);
+                };
+                timer.Start();
             }
 
             if (IsCriticalSeverity(severity) && _autoShutdownOnCritical)
@@ -636,6 +714,48 @@ namespace GUI
             }
 
             return history;
+        }
+
+        private void ClearAlarmHistory(string motorId)
+        {
+            ObservableCollection<AlarmEventViewModel> history;
+            if (_alarmHistoryByMotor.TryGetValue(motorId, out history))
+            {
+                history.Clear();
+            }
+
+            foreach (var widget in _widgets.Where(w => w.Type == TipoWidget.PanelAlarmas && string.Equals(MotorIdFromTag(w.Tag), motorId, StringComparison.OrdinalIgnoreCase)))
+            {
+                widget.AlarmItems = GetAlarmHistory(motorId);
+                RenderAlarmList(widget);
+                if (widget.ValueBlock != null)
+                {
+                    widget.ValueBlock.Text = "Sin alarmas activas";
+                    widget.ValueBlock.Foreground = new SolidColorBrush(Color.FromRgb(45, 212, 191));
+                }
+            }
+
+            if (string.Equals(motorId, _selectedMotorId, StringComparison.OrdinalIgnoreCase))
+            {
+                HideAlertPopup();
+            }
+        }
+
+        private void ClearAllAlarmHistories()
+        {
+            foreach (var history in _alarmHistoryByMotor.Values)
+            {
+                history.Clear();
+            }
+
+            HideAlertPopup();
+        }
+
+        private void HideAlertPopup()
+        {
+            AlertPopup.BeginAnimation(OpacityProperty, null);
+            AlertPopup.Opacity = 0;
+            AlertPopup.Visibility = Visibility.Collapsed;
         }
 
         private static void RenderAlarmList(DashboardWidgetViewModel widget)
@@ -702,6 +822,7 @@ namespace GUI
 
             if (_simulationManager.MqttTelemetryActive)
             {
+                _manualMqttDisconnect = true;
                 _simulationManager.DisconnectMqttAsync();
                 ConnectionStatusTextBlock.Text = "MQTT desconectado";
                 ConnectionStatusTextBlock.Foreground = new SolidColorBrush(Color.FromRgb(182, 193, 208));
@@ -740,14 +861,87 @@ namespace GUI
             StatusBarTextBlock.Text = detail + " - " + motorId;
         }
 
+        private void ClearMotorFromUi(string motorId, bool keepLastSeen)
+        {
+            if (string.IsNullOrWhiteSpace(motorId))
+            {
+                return;
+            }
+
+            if (!keepLastSeen)
+            {
+                _lastSeenByMotor.Remove(motorId);
+            }
+
+            foreach (var row in _tagRows.Where(item => item.Key.StartsWith(motorId + ".", StringComparison.OrdinalIgnoreCase)).Select(item => item.Value).ToList())
+            {
+                Tags.Remove(row);
+                _tagRows.Remove(row.Tag);
+            }
+
+            ResetMotorWidgets(motorId);
+            ClearAlarmHistory(motorId);
+            SetMotorRuntimeState(motorId, "Sin datos", "Dispositivo fuera de linea");
+        }
+
+        private void ResetMotorWidgets(string motorId)
+        {
+            foreach (var widget in _widgets.Where(w => string.Equals(MotorIdFromTag(w.Tag), motorId, StringComparison.OrdinalIgnoreCase)))
+            {
+                widget.ValueText = "--";
+                widget.History.Clear();
+
+                if (widget.ValueBlock != null)
+                {
+                    widget.ValueBlock.Text = widget.Type == TipoWidget.PanelAlarmas ? "Sin alarmas activas" : "--";
+                    widget.ValueBlock.Foreground = widget.Type == TipoWidget.PanelAlarmas
+                        ? new SolidColorBrush(Color.FromRgb(45, 212, 191))
+                        : new SolidColorBrush(Color.FromRgb(238, 244, 248));
+                }
+
+                if (widget.Progress != null)
+                {
+                    widget.Progress.Value = 0;
+                }
+
+                if (widget.TankLiquid != null)
+                {
+                    widget.TankLiquid.BeginAnimation(HeightProperty, null);
+                    widget.TankLiquid.Height = 0;
+                }
+
+                if (widget.Needle != null)
+                {
+                    widget.Needle.RenderTransform = new RotateTransform(-55, 86, 82);
+                }
+
+                if (widget.TrendLine != null)
+                {
+                    widget.TrendLine.Points = new PointCollection();
+                }
+
+                if (widget.AlarmList != null)
+                {
+                    RenderAlarmList(widget);
+                }
+            }
+        }
+
         private void SimulationManager_TagsCleared()
         {
             Dispatcher.Invoke(() =>
             {
                 _tagRows.Clear();
                 Tags.Clear();
+                _lastSeenByMotor.Clear();
+                ClearAllAlarmHistories();
                 ResetDashboardWidgets();
             });
+        }
+
+        private void SimulationManager_MotorTagsCleared(string motorId)
+        {
+            Dispatcher.Invoke(() => ClearMotorFromUi(motorId, false));
         }
 
         private void LoadPalette()
@@ -947,10 +1141,10 @@ namespace GUI
         {
             motorId = string.IsNullOrWhiteSpace(motorId) ? "MOTOR_01" : motorId;
             AddWidget(TipoWidget.Medidor, 0, 0, motorId + ".RPM", "Velocidad RPM");
-            AddWidget(TipoWidget.Numerico, 264, 0, motorId + ".Temperatura", "Temperatura");
-            AddWidget(TipoWidget.Tanque, 528, 0, motorId + ".Nivel", "Nivel de tanque");
-            AddWidget(TipoWidget.Tendencia, 0, 264, motorId + ".RPM", "Historico RPM");
-            AddWidget(TipoWidget.PanelAlarmas, 352, 264, motorId + ".Alarma", "Alarmas");
+            AddWidget(TipoWidget.Numerico, CellSize * 3, 0, motorId + ".Temperatura", "Temperatura");
+            AddWidget(TipoWidget.Tanque, CellSize * 6, 0, motorId + ".Nivel", "Nivel de tanque");
+            AddWidget(TipoWidget.Tendencia, 0, CellSize * 3, motorId + ".RPM", "Historico RPM");
+            AddWidget(TipoWidget.PanelAlarmas, CellSize * 4, CellSize * 3, motorId + ".Alarma", "Alarmas");
         }
 
         private void AddWidget(TipoWidget type, double left, double top)
@@ -1655,7 +1849,12 @@ namespace GUI
                     RedrawTrend(widget);
                 }
 
-                if (widget.Type == TipoWidget.PanelAlarmas && text != "Sin alarmas")
+                if (widget.Type == TipoWidget.PanelAlarmas
+                    && (text == "Sin alarmas" || text == "Sin alarmas activas"))
+                {
+                    ClearAlarmHistory(MotorIdFromTag(tag));
+                }
+                else if (widget.Type == TipoWidget.PanelAlarmas && text != "Sin alarmas")
                 {
                     var severity = SeverityForAlarmText(text);
                     RegisterAlarm(tag, text, severity, true);

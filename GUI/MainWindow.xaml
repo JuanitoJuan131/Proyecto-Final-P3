@@ -131,7 +131,7 @@
         </Grid.Background>
 
         <Grid.RowDefinitions>
-            <RowDefinition Height="106" />
+            <RowDefinition Height="98" />
             <RowDefinition Height="*" />
             <RowDefinition Height="34" />
         </Grid.RowDefinitions>
@@ -167,9 +167,9 @@
 
             <Grid Margin="20,0">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="310" />
+                    <ColumnDefinition Width="286" />
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="340" />
+                    <ColumnDefinition Width="330" />
                 </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="58" />
@@ -218,14 +218,15 @@
                 </StackPanel>
 
                 <WrapPanel Grid.Column="1" Grid.Row="1" VerticalAlignment="Top" HorizontalAlignment="Left">
-                    <Button x:Name="ConnectButton" Content="Conectar" Click="ConnectButton_Click" Width="104" Background="#0D2B1A" BorderBrush="#28C7A4" Foreground="#8FFFE8" Margin="0,0,7,0" />
-                    <Button x:Name="SimulationButton" Content="Iniciar simulacion" Click="SimulationButton_Click" Width="150" Margin="0,0,7,0" />
-                    <Button x:Name="NewDashboardButton" Content="Nuevo" Click="NewDashboardButton_Click" Width="100" Margin="0,0,7,0" />
-                    <Button x:Name="SaveDashboardButton" Content="Guardar Dashboard" Click="SaveDashboardButton_Click" Width="176" Margin="0,0,7,0" />
-                    <Button x:Name="AutomationButton" Content="Automatizacion" Click="AutomationButton_Click" Width="152" Background="#1A1206" BorderBrush="#F7C948" Foreground="#FDE68A" />
+                    <Button x:Name="ConnectButton" Content="Conectar" Click="ConnectButton_Click" Width="92" Background="#0D2B1A" BorderBrush="#28C7A4" Foreground="#8FFFE8" Margin="0,0,6,0" />
+                    <Button x:Name="DisconnectMqttButton" Content="Desconectar MQTT" Click="DisconnectMqttButton_Click" Width="142" Background="#241112" BorderBrush="#EF4444" Foreground="#FCA5A5" Margin="0,0,6,0" />
+                    <Button x:Name="SimulationButton" Content="Iniciar simulacion" Click="SimulationButton_Click" Width="138" Margin="0,0,6,0" />
+                    <Button x:Name="NewDashboardButton" Content="Nuevo" Click="NewDashboardButton_Click" Width="82" Margin="0,0,6,0" />
+                    <Button x:Name="SaveDashboardButton" Content="Guardar" Click="SaveDashboardButton_Click" Width="96" Margin="0,0,6,0" />
+                    <Button x:Name="AutomationButton" Content="Automatizacion" Click="AutomationButton_Click" Width="132" Background="#1A1206" BorderBrush="#F7C948" Foreground="#FDE68A" />
                 </WrapPanel>
 
-                <Border Grid.Column="2" Grid.RowSpan="2" Background="#080E18" BorderBrush="#142030" BorderThickness="1" CornerRadius="10" Padding="16,10" HorizontalAlignment="Right" VerticalAlignment="Center" Width="310">
+                <Border Grid.Column="2" Grid.RowSpan="2" Background="#080E18" BorderBrush="#142030" BorderThickness="1" CornerRadius="8" Padding="14,8" HorizontalAlignment="Right" VerticalAlignment="Center" Width="304">
                     <StackPanel>
                         <TextBlock x:Name="DashboardNameHeaderTextBlock" Text="Dashboard principal" HorizontalAlignment="Right" FontSize="17" FontWeight="SemiBold" Foreground="#DDEAF5" />
                         <TextBlock x:Name="SelectedMotorHeaderTextBlock" Text="Motor: MOTOR_01" Foreground="#8CBFEA" HorizontalAlignment="Right" FontWeight="SemiBold" FontSize="12" Margin="0,4,0,4" />
@@ -318,7 +319,7 @@
 
             <Grid Grid.Column="1">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="162" />
+                    <RowDefinition Height="142" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
@@ -337,9 +338,9 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border CornerRadius="10"
+                                <Border CornerRadius="8"
                                         Margin="0,0,10,0"
-                                        Padding="12,10"
+                                        Padding="10,8"
                                         Tag="{Binding Id}"
                                         Cursor="Hand"
                                         BorderThickness="{Binding SelectionThickness}"
@@ -362,23 +363,23 @@
                                         </Grid.RowDefinitions>
 
                                         <StackPanel>
-                                            <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14" TextTrimming="CharacterEllipsis" Foreground="#DDEAF5" />
+                                            <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="13" TextTrimming="CharacterEllipsis" Foreground="#DDEAF5" />
                                             <TextBlock Text="{Binding Line}" Foreground="#82ACD2" FontSize="11.5" TextTrimming="CharacterEllipsis" />
                                         </StackPanel>
 
-                                        <Grid Grid.Row="1" Margin="0,8,0,6">
+                                        <Grid Grid.Row="1" Margin="0,6,0,4">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition />
                                                 <ColumnDefinition Width="1" />
                                                 <ColumnDefinition />
                                             </Grid.ColumnDefinitions>
                                             <StackPanel HorizontalAlignment="Center">
-                                                <TextBlock Text="{Binding RpmText}" FontSize="22" FontWeight="Bold" Foreground="#28C7A4" Effect="{StaticResource AccentGlow}" />
+                                                <TextBlock Text="{Binding RpmText}" FontSize="19" FontWeight="Bold" Foreground="#28C7A4" Effect="{StaticResource AccentGlow}" />
                                                 <TextBlock Text="RPM" Foreground="#70A99B" FontSize="10.5" FontWeight="Bold" HorizontalAlignment="Center" />
                                             </StackPanel>
                                             <Rectangle Grid.Column="1" Width="1" Fill="#1A3050" VerticalAlignment="Stretch" />
                                             <StackPanel Grid.Column="2" HorizontalAlignment="Center">
-                                                <TextBlock Text="{Binding TemperatureText}" FontSize="22" FontWeight="Bold" Foreground="#F7C948" Effect="{StaticResource YellowGlow}" />
+                                                <TextBlock Text="{Binding TemperatureText}" FontSize="19" FontWeight="Bold" Foreground="#F7C948" Effect="{StaticResource YellowGlow}" />
                                                 <TextBlock Text="TEMP" Foreground="#BCA756" FontSize="10.5" FontWeight="Bold" HorizontalAlignment="Center" />
                                             </StackPanel>
                                         </Grid>
@@ -403,7 +404,7 @@
                                 MouseMove="DashboardCanvas_MouseMove"
                                 MouseLeftButtonUp="DashboardCanvas_MouseLeftButtonUp">
                             <Canvas.Background>
-                                <DrawingBrush TileMode="Tile" Viewport="0,0,88,88" ViewportUnits="Absolute">
+                                <DrawingBrush TileMode="Tile" Viewport="0,0,80,80" ViewportUnits="Absolute">
                                     <DrawingBrush.Drawing>
                                         <GeometryDrawing Brush="#070C14">
                                             <GeometryDrawing.Pen>
@@ -411,8 +412,8 @@
                                             </GeometryDrawing.Pen>
                                             <GeometryDrawing.Geometry>
                                                 <GeometryGroup>
-                                                    <LineGeometry StartPoint="0,0" EndPoint="88,0" />
-                                                    <LineGeometry StartPoint="0,0" EndPoint="0,88" />
+                                                    <LineGeometry StartPoint="0,0" EndPoint="80,0" />
+                                                    <LineGeometry StartPoint="0,0" EndPoint="0,80" />
                                                 </GeometryGroup>
                                             </GeometryDrawing.Geometry>
                                         </GeometryDrawing>

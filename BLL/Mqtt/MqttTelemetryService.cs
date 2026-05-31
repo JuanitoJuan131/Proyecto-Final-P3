@@ -3,18 +3,22 @@ using MQTTnet.Client;
 using MQTTnet.Client.Options;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace BLL.Mqtt
 {
     public class MqttTelemetryService
     {
+        private readonly SemaphoreSlim _connectionGate = new SemaphoreSlim(1, 1);
         private IMqttClient _client;
+        private string _clientId;
 
         public bool IsConnected
         {
@@ -26,52 +30,76 @@ namespace BLL.Mqtt
 
         public async Task ConnectAsync(string server, int port)
         {
-            if (_client != null && _client.IsConnected)
+            await _connectionGate.WaitAsync();
+            try
             {
-                await _client.DisconnectAsync();
-            }
-
-            var factory = new MqttFactory();
-            _client = factory.CreateMqttClient();
-
-            _client.UseConnectedHandler(e => ConnectionChanged?.Invoke(true, "Conectado"));
-            _client.UseDisconnectedHandler(e => ConnectionChanged?.Invoke(false, "Desconectado"));
-            _client.UseApplicationMessageReceivedHandler(e =>
-            {
-                var payload = Encoding.UTF8.GetString(e.ApplicationMessage.Payload ?? new byte[0]);
-                MessageReceived?.Invoke(e.ApplicationMessage.Topic, payload);
-            });
-
-            var endpoints = await ResolveIpv4EndpointsAsync(server, port);
-            Exception lastError = null;
-
-            foreach (var endpoint in endpoints)
-            {
-                try
+                if (_client != null && _client.IsConnected)
                 {
-                    ConnectionChanged?.Invoke(false, "Conectando a " + endpoint.Host + ":" + endpoint.Port);
-
-                    var options = new MqttClientOptionsBuilder()
-                        .WithClientId("VisualIoTDesktop-" + Guid.NewGuid().ToString("N"))
-                        .WithTcpServer(endpoint.Host, endpoint.Port)
-                        .WithCleanSession()
-                        .WithCommunicationTimeout(TimeSpan.FromSeconds(7))
-                        .Build();
-
-                    await _client.ConnectAsync(options);
+                    Trace.TraceInformation("MQTT already connected as {0}", _clientId);
+                    ConnectionChanged?.Invoke(true, "Ya conectado");
                     return;
                 }
-                catch (Exception ex)
+
+                var factory = new MqttFactory();
+                _client = factory.CreateMqttClient();
+                _clientId = "VisualIoTDesktop-" + Environment.MachineName + "-" + Guid.NewGuid().ToString("N").Substring(0, 8);
+
+                _client.UseConnectedHandler(e =>
                 {
-                    lastError = ex;
+                    Trace.TraceInformation("MQTT connected as {0}", _clientId);
+                    ConnectionChanged?.Invoke(true, "Conectado");
+                });
+                _client.UseDisconnectedHandler(e =>
+                {
+                    var reason = e.Exception == null ? "Desconectado" : e.Exception.Message;
+                    Trace.TraceWarning("MQTT disconnected: {0}", reason);
+                    ConnectionChanged?.Invoke(false, reason);
+                });
+                _client.UseApplicationMessageReceivedHandler(e =>
+                {
+                    var payload = Encoding.UTF8.GetString(e.ApplicationMessage.Payload ?? new byte[0]);
+                    Trace.TraceInformation("MQTT message {0}: {1}", e.ApplicationMessage.Topic, payload);
+                    MessageReceived?.Invoke(e.ApplicationMessage.Topic, payload);
+                });
+
+                var endpoints = await ResolveIpv4EndpointsAsync(server, port);
+                Exception lastError = null;
+
+                foreach (var endpoint in endpoints)
+                {
+                    try
+                    {
+                        ConnectionChanged?.Invoke(false, "Conectando a " + endpoint.Host + ":" + endpoint.Port);
+                        Trace.TraceInformation("MQTT connecting to {0}:{1}", endpoint.Host, endpoint.Port);
+
+                        var options = new MqttClientOptionsBuilder()
+                            .WithClientId(_clientId)
+                            .WithTcpServer(endpoint.Host, endpoint.Port)
+                            .WithCleanSession()
+                            .WithKeepAlivePeriod(TimeSpan.FromSeconds(30))
+                            .WithCommunicationTimeout(TimeSpan.FromSeconds(10))
+                            .Build();
+
+                        await _client.ConnectAsync(options);
+                        return;
+                    }
+                    catch (Exception ex)
+                    {
+                        lastError = ex;
+                        Trace.TraceError("MQTT connection error on {0}:{1}: {2}", endpoint.Host, endpoint.Port, ex);
+                    }
                 }
+
+                var message = lastError == null
+                    ? "No se pudo resolver un endpoint MQTT IPv4."
+                    : lastError.Message;
+
+                throw new InvalidOperationException("No se pudo conectar a MQTT por IPv4. " + message, lastError);
             }
-
-            var message = lastError == null
-                ? "No se pudo resolver un endpoint MQTT IPv4."
-                : lastError.Message;
-
-            throw new InvalidOperationException("No se pudo conectar a MQTT por IPv4. " + message, lastError);
+            finally
+            {
+                _connectionGate.Release();
+            }
         }
 
         public async Task SubscribeAsync(string topic)
@@ -81,6 +109,7 @@ namespace BLL.Mqtt
                 return;
             }
 
+            Trace.TraceInformation("MQTT subscribing to {0}", topic);
             await _client.SubscribeAsync(topic);
         }
 
@@ -96,14 +125,24 @@ namespace BLL.Mqtt
                 .WithPayload(Convert.ToString(value, CultureInfo.InvariantCulture))
                 .Build();
 
+            Trace.TraceInformation("MQTT publishing {0}: {1}", topic, value);
             await _client.PublishAsync(message);
         }
 
         public async Task DisconnectAsync()
         {
-            if (_client != null && _client.IsConnected)
+            await _connectionGate.WaitAsync();
+            try
             {
-                await _client.DisconnectAsync();
+                if (_client != null && _client.IsConnected)
+                {
+                    Trace.TraceInformation("MQTT manual disconnect");
+                    await _client.DisconnectAsync();
+                }
+            }
+            finally
+            {
+                _connectionGate.Release();
             }
         }
 
