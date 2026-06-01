@@ -37,6 +37,8 @@ namespace GUI
         private readonly Dictionary<string, DateTime> _lastAutomationEvaluation = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, List<DashboardWidgetLayout>> _motorLayouts = new Dictionary<string, List<DashboardWidgetLayout>>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, ObservableCollection<AlarmEventViewModel>> _alarmHistoryByMotor = new Dictionary<string, ObservableCollection<AlarmEventViewModel>>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, List<DashboardWidgetViewModel>> _widgetsByTag = new Dictionary<string, List<DashboardWidgetViewModel>>(StringComparer.OrdinalIgnoreCase);
+        private readonly List<DashboardWidgetViewModel> _alarmWidgets = new List<DashboardWidgetViewModel>();
         private readonly List<DashboardWidgetViewModel> _widgets = new List<DashboardWidgetViewModel>();
         private DashboardWidgetViewModel _draggingWidget;
         private DashboardWidgetViewModel _selectedWidget;
@@ -422,8 +424,7 @@ namespace GUI
             var point = e.GetPosition(DashboardCanvas);
             var left = Clamp(point.X - _dragOffset.X, 0, Math.Max(0, DashboardCanvas.ActualWidth - _draggingWidget.Container.ActualWidth));
             var top = Clamp(point.Y - _dragOffset.Y, 0, Math.Max(0, DashboardCanvas.ActualHeight - _draggingWidget.Container.ActualHeight));
-            Canvas.SetLeft(_draggingWidget.Container, left);
-            Canvas.SetTop(_draggingWidget.Container, top);
+            AnimateWidgetTo(_draggingWidget.Container, left, top, 72);
             _wasDragged = true;
         }
 
@@ -442,7 +443,7 @@ namespace GUI
             {
                 var left = Snap(Canvas.GetLeft(_draggingWidget.Container));
                 var top = Snap(Canvas.GetTop(_draggingWidget.Container));
-                AnimateWidgetTo(_draggingWidget.Container, left, top);
+                AnimateWidgetTo(_draggingWidget.Container, left, top, 240);
             }
 
             SelectWidget(_draggingWidget);
@@ -451,12 +452,17 @@ namespace GUI
 
         private static void AnimateWidgetTo(UIElement element, double left, double top)
         {
+            AnimateWidgetTo(element, left, top, 180);
+        }
+
+        private static void AnimateWidgetTo(UIElement element, double left, double top, int milliseconds)
+        {
             var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
             var currentLeft = Canvas.GetLeft(element);
             var currentTop = Canvas.GetTop(element);
 
-            var leftAnimation = new DoubleAnimation(currentLeft, left, TimeSpan.FromMilliseconds(150)) { EasingFunction = ease };
-            var topAnimation = new DoubleAnimation(currentTop, top, TimeSpan.FromMilliseconds(150)) { EasingFunction = ease };
+            var leftAnimation = new DoubleAnimation(currentLeft, left, TimeSpan.FromMilliseconds(milliseconds)) { EasingFunction = ease };
+            var topAnimation = new DoubleAnimation(currentTop, top, TimeSpan.FromMilliseconds(milliseconds)) { EasingFunction = ease };
 
             leftAnimation.Completed += (sender, args) =>
             {
@@ -533,7 +539,7 @@ namespace GUI
             {
                 _mqttMessageCount++;
                 if (_mqttMessageCount <= 5 || _mqttMessageCount % 10 == 0)
-                {
+                { 
                     AddEvent("MQTT <- " + topic + " = " + payload);
                 }
             });
@@ -939,6 +945,7 @@ namespace GUI
                 if (widget.Needle != null)
                 {
                     widget.Needle.RenderTransform = new RotateTransform(-55, 86, 82);
+                    widget.GaugeAngle = -55;
                 }
 
                 if (widget.TrendLine != null)
@@ -983,6 +990,20 @@ namespace GUI
             WidgetPaletteItems.Add(new WidgetPaletteItem(TipoWidget.PanelAlarmas, "Alarmas", "Mensajes activos", "!", Color.FromRgb(248, 113, 113)));
         }
 
+        private void ClearDashboardWidgetSurface()
+        {
+            foreach (var widget in _widgets)
+            {
+                StopWidgetAnimations(widget);
+            }
+
+            DashboardCanvas.Children.Clear();
+            _widgets.Clear();
+            _widgetsByTag.Clear();
+            _alarmWidgets.Clear();
+            _selectedWidget = null;
+            _draggingWidget = null;
+        }
         private void CreateDashboardFromOptions(DashboardStartupOptions options)
         {
             options = options ?? new DashboardStartupOptions();
@@ -1004,8 +1025,7 @@ namespace GUI
             ProjectNameHeaderTextBlock.Text = projectName;
             DashboardNameHeaderTextBlock.Text = dashboardName + " - " + motorId;
 
-            DashboardCanvas.Children.Clear();
-            _widgets.Clear();
+            ClearDashboardWidgetSurface();
             EmptyDashboardText.Visibility = Visibility.Visible;
 
             if (options.LoadFromLayout && !string.IsNullOrWhiteSpace(options.LayoutJson))
@@ -1110,6 +1130,7 @@ namespace GUI
                     width = w.Container == null ? 0 : w.Container.Width,
                     height = w.Container == null ? 0 : w.Container.Height,
                     tag = w.Tag,
+                    selectedTag = w.SelectedTag,
                     sensor = w.Tag,
                     titulo = w.Title,
                     color = w.Color
@@ -1119,9 +1140,7 @@ namespace GUI
 
         private void LoadMotorWorkspace(string motorId)
         {
-            DashboardCanvas.Children.Clear();
-            _widgets.Clear();
-            _selectedWidget = null;
+            ClearDashboardWidgetSurface();
             EmptyDashboardText.Visibility = Visibility.Visible;
 
             List<DashboardWidgetLayout> saved;
@@ -1133,7 +1152,7 @@ namespace GUI
                         WidgetTypeFromLayout(item.tipo),
                         item.x,
                         item.y,
-                        string.IsNullOrWhiteSpace(item.tag) ? item.sensor : item.tag,
+                        ResolveLayoutTag(item),
                         string.IsNullOrWhiteSpace(item.titulo) ? DefaultTitleFor(WidgetTypeFromLayout(item.tipo)) : item.titulo,
                         item.width > 0 ? item.width : CellSize * 3,
                         item.height > 0 ? item.height : CellSize * 2,
@@ -1177,7 +1196,15 @@ namespace GUI
 
         private void AddWidget(TipoWidget type, double left, double top)
         {
-            AddWidget(type, left, top, ResolveDefaultTagFor(type), DefaultTitleFor(type));
+            var tag = ResolveDefaultTagFor(type);
+            var title = DefaultTitleFor(type);
+
+            if (type == TipoWidget.Numerico && !TrySelectNumericTag(type, ref tag, ref title))
+            {
+                return;
+            }
+
+            AddWidget(type, left, top, tag, title);
         }
 
         private void AddWidget(TipoWidget type, double left, double top, string tag, string title)
@@ -1227,6 +1254,7 @@ namespace GUI
             Canvas.SetTop(border, top);
             DashboardCanvas.Children.Add(border);
             _widgets.Add(widget);
+            RegisterWidget(widget);
             AnimateWidgetEntrance(border);
             ApplyCurrentValue(widget);
         }
@@ -1259,6 +1287,22 @@ namespace GUI
         private ContextMenu BuildWidgetContextMenu(DashboardWidgetViewModel widget)
         {
             var menu = new ContextMenu();
+
+            if (widget.Type == TipoWidget.Numerico || widget.Type == TipoWidget.Tendencia)
+            {
+                var changeTagItem = new MenuItem { Header = "Cambiar variable" };
+                changeTagItem.Click += (sender, args) => ChangeWidgetNumericTag(widget);
+                menu.Items.Add(changeTagItem);
+            }
+
+            if (widget.Type == TipoWidget.Tendencia)
+            {
+                var colorItem = new MenuItem { Header = "Cambiar color" };
+                colorItem.Click += (sender, args) => ChangeWidgetColor(widget);
+                menu.Items.Add(colorItem);
+                menu.Items.Add(new Separator());
+            }
+
             var deleteItem = new MenuItem { Header = "Eliminar widget" };
             deleteItem.Click += (sender, args) => RemoveWidget(widget);
             menu.Items.Add(deleteItem);
@@ -1272,6 +1316,7 @@ namespace GUI
             {
                 Type = type,
                 Tag = tag,
+                SelectedTag = tag,
                 Title = title,
                 ValueText = "--",
                 Unit = UnitFor(tag),
@@ -1281,6 +1326,291 @@ namespace GUI
             };
         }
 
+        private bool TrySelectNumericTag(TipoWidget type, ref string tag, ref string title)
+        {
+            var selected = ShowNumericTagSelector(type, tag);
+            if (string.IsNullOrWhiteSpace(selected))
+            {
+                return false;
+            }
+
+            tag = selected;
+            title = MetricTitleFromTag(selected);
+            return true;
+        }
+
+        private string ShowNumericTagSelector(TipoWidget type, string currentTag)
+        {
+            var tags = GetNumericTagsForSelectedMotor().ToList();
+            if (tags.Count == 0)
+            {
+                tags.Add(currentTag);
+            }
+
+            var dialog = new Window
+            {
+                Title = type == TipoWidget.Tendencia ? "Seleccionar variable de tendencia" : "Seleccionar variable numerica",
+                Owner = this,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                ResizeMode = ResizeMode.NoResize,
+                Width = 420,
+                Height = 470,
+                Background = new SolidColorBrush(Color.FromRgb(12, 20, 32))
+            };
+
+            var root = new Grid { Margin = new Thickness(18) };
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            root.RowDefinitions.Add(new RowDefinition());
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+            root.Children.Add(new TextBlock
+            {
+                Text = "Tags numericos de " + (string.IsNullOrWhiteSpace(_selectedMotorId) ? "motor seleccionado" : _selectedMotorId),
+                Foreground = Brushes.White,
+                FontSize = 16,
+                FontWeight = FontWeights.Bold,
+                Margin = new Thickness(0, 0, 0, 12)
+            });
+
+            var list = new ListBox
+            {
+                Background = new SolidColorBrush(Color.FromRgb(8, 14, 24)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(42, 64, 90)),
+                Foreground = Brushes.White,
+                DisplayMemberPath = "Display",
+                SelectedValuePath = "Tag"
+            };
+
+            foreach (var item in tags.Where(t => !string.IsNullOrWhiteSpace(t)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(MetricTitleFromTag))
+            {
+                list.Items.Add(new NumericTagOption { Tag = item, Display = MetricTitleFromTag(item) + "  (" + item + ")" });
+            }
+
+            list.SelectedValue = currentTag;
+            if (list.SelectedItem == null && list.Items.Count > 0)
+            {
+                list.SelectedIndex = 0;
+            }
+
+            Grid.SetRow(list, 1);
+            root.Children.Add(list);
+
+            var buttons = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Margin = new Thickness(0, 14, 0, 0)
+            };
+            var cancel = new Button { Content = "Cancelar", Width = 96, Margin = new Thickness(0, 0, 8, 0) };
+            var accept = new Button { Content = "Aceptar", Width = 96, IsDefault = true };
+            cancel.Click += (sender, args) => { dialog.DialogResult = false; dialog.Close(); };
+            accept.Click += (sender, args) => { dialog.DialogResult = true; dialog.Close(); };
+            buttons.Children.Add(cancel);
+            buttons.Children.Add(accept);
+            Grid.SetRow(buttons, 2);
+            root.Children.Add(buttons);
+
+            dialog.Content = root;
+            return dialog.ShowDialog() == true ? Convert.ToString(list.SelectedValue, CultureInfo.InvariantCulture) : null;
+        }
+
+        private IEnumerable<string> GetNumericTagsForSelectedMotor()
+        {
+            var prefix = (string.IsNullOrWhiteSpace(_selectedMotorId) ? "MOTOR_01" : _selectedMotorId) + ".";
+            foreach (var tag in _simulationManager.Tags)
+            {
+                if (tag.Key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) && IsNumericValue(tag.Value))
+                {
+                    yield return tag.Key;
+                }
+            }
+
+            foreach (var suffix in new[] { ".Temperatura", ".RPM", ".Corriente", ".Voltaje", ".Vibracion", ".Presion", ".Nivel", ".Eficiencia", ".Consumo", ".Potencia", ".Torque" })
+            {
+                yield return prefix.TrimEnd('.') + suffix;
+            }
+        }
+
+        private void ChangeWidgetNumericTag(DashboardWidgetViewModel widget)
+        {
+            if (widget == null)
+            {
+                return;
+            }
+
+            var tag = widget.Tag;
+            var title = widget.Title;
+            if (!TrySelectNumericTag(widget.Type, ref tag, ref title) || TagsMatch(tag, widget.Tag))
+            {
+                return;
+            }
+
+            UnregisterWidget(widget);
+            widget.Tag = tag;
+            widget.SelectedTag = tag;
+            widget.Title = title;
+            widget.Unit = UnitFor(tag);
+            widget.ValueText = "--";
+            widget.History.Clear();
+
+            if (widget.Type != TipoWidget.Tendencia)
+            {
+                ApplyWidgetColor(widget, AccentFor(tag, widget.Type));
+            }
+
+            RebuildWidgetContent(widget);
+            RegisterWidget(widget);
+            ApplyCurrentValue(widget);
+            AddEvent("Widget actualizado a " + tag);
+        }
+
+        private void ChangeWidgetColor(DashboardWidgetViewModel widget)
+        {
+            Color color;
+            if (widget == null || !TryShowColorSelector(ParseColor(widget.Color) ?? AccentFor(widget.Tag, widget.Type), out color))
+            {
+                return;
+            }
+
+            ApplyWidgetColor(widget, color);
+            AddEvent("Color de grafica actualizado: " + widget.Title);
+        }
+
+        private void ApplyWidgetColor(DashboardWidgetViewModel widget, Color color)
+        {
+            widget.Color = ColorToText(color);
+            widget.AccentBrush = new SolidColorBrush(color);
+            widget.BadgeBrush = new SolidColorBrush(Color.FromArgb(38, color.R, color.G, color.B));
+
+            if (widget.TrendLine != null)
+            {
+                widget.TrendLine.Stroke = widget.AccentBrush;
+            }
+
+            if (widget.TrendMarkerDot != null)
+            {
+                widget.TrendMarkerDot.Fill = widget.AccentBrush;
+            }
+
+            if (widget.TrendTooltip != null)
+            {
+                widget.TrendTooltip.BorderBrush = widget.AccentBrush;
+            }
+        }
+
+        private bool TryShowColorSelector(Color current, out Color color)
+        {
+            color = current;
+            var selectedColor = current;
+            var dialog = new Window
+            {
+                Title = "Cambiar color",
+                Owner = this,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                ResizeMode = ResizeMode.NoResize,
+                Width = 360,
+                Height = 260,
+                Background = new SolidColorBrush(Color.FromRgb(12, 20, 32))
+            };
+
+            var root = new StackPanel { Margin = new Thickness(18) };
+            var preview = new Border
+            {
+                Height = 42,
+                CornerRadius = new CornerRadius(6),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(42, 64, 90)),
+                BorderThickness = new Thickness(1),
+                Background = new SolidColorBrush(current),
+                Margin = new Thickness(0, 0, 0, 12)
+            };
+            root.Children.Add(preview);
+            root.Children.Add(new TextBlock { Text = "HEX (#RRGGBB)", Foreground = new SolidColorBrush(Color.FromRgb(158, 200, 234)), FontWeight = FontWeights.SemiBold });
+            var input = new TextBox { Text = ColorToText(current), Margin = new Thickness(0, 6, 0, 12), FontSize = 15 };
+            root.Children.Add(input);
+
+            var presets = new WrapPanel { Margin = new Thickness(0, 0, 0, 14) };
+            foreach (var preset in new[] { "#22D3EE", "#A3E635", "#F97316", "#38BDF8", "#E879F9", "#F43F5E", "#FBBF24", "#10B981" })
+            {
+                var presetColor = ParseColor(preset).Value;
+                var swatch = new Button
+                {
+                    Width = 30,
+                    Height = 30,
+                    Margin = new Thickness(0, 0, 8, 8),
+                    Background = new SolidColorBrush(presetColor),
+                    BorderBrush = Brushes.White,
+                    Tag = preset
+                };
+                swatch.Click += (sender, args) =>
+                {
+                    input.Text = Convert.ToString(((Button)sender).Tag, CultureInfo.InvariantCulture);
+                    preview.Background = new SolidColorBrush(ParseColor(input.Text) ?? current);
+                };
+                presets.Children.Add(swatch);
+            }
+            root.Children.Add(presets);
+
+            input.TextChanged += (sender, args) =>
+            {
+                var parsed = ParseColor(input.Text);
+                if (parsed.HasValue)
+                {
+                    preview.Background = new SolidColorBrush(parsed.Value);
+                }
+            };
+
+            var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+            var cancel = new Button { Content = "Cancelar", Width = 96, Margin = new Thickness(0, 0, 8, 0) };
+            var accept = new Button { Content = "Aceptar", Width = 96, IsDefault = true };
+            cancel.Click += (sender, args) => { dialog.DialogResult = false; dialog.Close(); };
+            accept.Click += (sender, args) =>
+            {
+                var parsed = ParseColor(input.Text);
+                if (!parsed.HasValue)
+                {
+                    StatusBarTextBlock.Text = "Color invalido. Usa formato #RRGGBB";
+                    return;
+                }
+
+                selectedColor = parsed.Value;
+                dialog.DialogResult = true;
+                dialog.Close();
+            };
+            buttons.Children.Add(cancel);
+            buttons.Children.Add(accept);
+            root.Children.Add(buttons);
+
+            dialog.Content = root;
+            var accepted = dialog.ShowDialog() == true;
+            if (accepted)
+            {
+                color = selectedColor;
+            }
+            return accepted;
+        }
+
+        private void RebuildWidgetContent(DashboardWidgetViewModel widget)
+        {
+            if (widget == null || widget.Container == null)
+            {
+                return;
+            }
+
+            widget.ValueBlock = null;
+            widget.FooterBlock = null;
+            widget.Progress = null;
+            widget.Needle = null;
+            widget.TrendLine = null;
+            widget.TrendCanvas = null;
+            widget.TrendMarkerLine = null;
+            widget.TrendMarkerDot = null;
+            widget.TrendTooltip = null;
+            widget.TrendTooltipText = null;
+            widget.TankLiquid = null;
+            widget.TankShell = null;
+            widget.Container.Child = BuildWidgetContent(widget);
+            widget.Container.ContextMenu = BuildWidgetContextMenu(widget);
+        }
         private UIElement BuildWidgetContent(DashboardWidgetViewModel widget)
         {
             switch (widget.Type)
@@ -1881,6 +2211,64 @@ namespace GUI
             }
         }
 
+        private void RegisterWidget(DashboardWidgetViewModel widget)
+        {
+            if (widget == null)
+            {
+                return;
+            }
+
+            if (widget.Type == TipoWidget.PanelAlarmas)
+            {
+                if (!_alarmWidgets.Contains(widget))
+                {
+                    _alarmWidgets.Add(widget);
+                }
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(widget.Tag))
+            {
+                return;
+            }
+
+            List<DashboardWidgetViewModel> widgets;
+            if (!_widgetsByTag.TryGetValue(widget.Tag, out widgets))
+            {
+                widgets = new List<DashboardWidgetViewModel>();
+                _widgetsByTag[widget.Tag] = widgets;
+            }
+
+            if (!widgets.Contains(widget))
+            {
+                widgets.Add(widget);
+            }
+        }
+
+        private void UnregisterWidget(DashboardWidgetViewModel widget)
+        {
+            if (widget == null)
+            {
+                return;
+            }
+
+            _alarmWidgets.Remove(widget);
+
+            if (string.IsNullOrWhiteSpace(widget.Tag))
+            {
+                return;
+            }
+
+            List<DashboardWidgetViewModel> widgets;
+            if (_widgetsByTag.TryGetValue(widget.Tag, out widgets))
+            {
+                widgets.Remove(widget);
+                if (widgets.Count == 0)
+                {
+                    _widgetsByTag.Remove(widget.Tag);
+                }
+            }
+        }
         private void RemoveWidget(DashboardWidgetViewModel widget)
         {
             if (widget == null || widget.Container == null)
@@ -1890,6 +2278,8 @@ namespace GUI
 
             DashboardCanvas.Children.Remove(widget.Container);
             _widgets.Remove(widget);
+            UnregisterWidget(widget);
+            StopWidgetAnimations(widget);
 
             if (_selectedWidget == widget)
             {
@@ -1959,30 +2349,54 @@ namespace GUI
 
         private void UpdateDashboardWidgets(string tag, object value)
         {
-            foreach (var widget in _widgets.Where(w => TagsMatch(w.Tag, tag) || w.Type == TipoWidget.PanelAlarmas))
+            var targets = new List<DashboardWidgetViewModel>();
+            List<DashboardWidgetViewModel> directWidgets;
+            if (_widgetsByTag.TryGetValue(tag, out directWidgets))
             {
-                if (widget.Type == TipoWidget.PanelAlarmas && (!EndsWithTag(tag, ".Alarma") || !IsWidgetForTagMotor(widget, tag)))
-                {
-                    continue;
-                }
+                targets.AddRange(directWidgets);
+            }
 
+            if (EndsWithTag(tag, ".Alarma"))
+            {
+                targets.AddRange(_alarmWidgets.Where(w => IsWidgetForTagMotor(w, tag)));
+            }
+
+            if (targets.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var widget in targets.Distinct())
+            {
                 var text = widget.Type == TipoWidget.PanelAlarmas
                     ? (string.IsNullOrWhiteSpace(Convert.ToString(value)) ? "Sin alarmas" : Convert.ToString(value))
                     : FormatValue(value);
 
                 widget.ValueText = text;
+                var number = ToDouble(value);
+
                 if (widget.ValueBlock != null)
                 {
-                    widget.ValueBlock.Text = text;
+                    if (widget.Type == TipoWidget.PanelAlarmas || !IsNumericValue(value))
+                    {
+                        widget.ValueBlock.Text = text;
+                    }
+                    else
+                    {
+                        AnimateNumericValue(widget, number);
+                    }
+
                     widget.ValueBlock.Foreground = widget.Type == TipoWidget.PanelAlarmas && text != "Sin alarmas"
                         ? new SolidColorBrush(Color.FromRgb(255, 106, 106))
                         : new SolidColorBrush(Color.FromRgb(238, 244, 248));
                 }
 
-                var number = ToDouble(value);
                 if (widget.Progress != null)
                 {
-                    widget.Progress.Value = Math.Max(0, Math.Min(100, number));
+                    widget.Progress.BeginAnimation(ProgressBar.ValueProperty, new DoubleAnimation(widget.Progress.Value, Math.Max(0, Math.Min(100, number)), TimeSpan.FromMilliseconds(260))
+                    {
+                        EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+                    });
                 }
 
                 if (widget.TankLiquid != null)
@@ -1994,7 +2408,18 @@ namespace GUI
                 {
                     var max = EndsWithTag(widget.Tag, ".RPM") ? 2000 : 100;
                     var angle = -55 + Math.Max(0, Math.Min(1, number / max)) * 110;
-                    widget.Needle.RenderTransform = new RotateTransform(angle, 86, 82);
+                    var rotate = widget.Needle.RenderTransform as RotateTransform;
+                    if (rotate == null)
+                    {
+                        rotate = new RotateTransform(widget.GaugeAngle, 86, 82);
+                        widget.Needle.RenderTransform = rotate;
+                    }
+
+                    rotate.BeginAnimation(RotateTransform.AngleProperty, new DoubleAnimation(widget.GaugeAngle, angle, TimeSpan.FromMilliseconds(360))
+                    {
+                        EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+                    });
+                    widget.GaugeAngle = angle;
                 }
 
                 if (widget.TrendLine != null)
@@ -2019,6 +2444,7 @@ namespace GUI
                 }
             }
         }
+
         //Esta parte es para resetear los widgets del dashboard al cambiar de motor
         //, para evitar que se muestren datos del motor anterior mientras se
         //cargan los nuevos datos del motor seleccionado    
@@ -2028,6 +2454,9 @@ namespace GUI
             {
                 widget.ValueText = "--";
                 widget.History.Clear();
+                StopWidgetAnimations(widget);
+                widget.HasDisplayedValue = false;
+                widget.GaugeAngle = -55;
 
                 if (widget.ValueBlock != null)
                 {
@@ -2049,6 +2478,7 @@ namespace GUI
                 if (widget.Needle != null)
                 {
                     widget.Needle.RenderTransform = new RotateTransform(-55, 86, 82);
+                    widget.GaugeAngle = -55;
                 }
 
                 if (widget.TrendLine != null)
@@ -2137,6 +2567,7 @@ namespace GUI
                 {
                     TipoWidget = w.Type,
                     Tag = w.Tag,
+                    SelectedTag = w.SelectedTag,
                     Titulo = w.Title,
                     X = double.IsNaN(left) ? 0 : left,
                     Y = double.IsNaN(top) ? 0 : top,
@@ -2168,6 +2599,7 @@ namespace GUI
                         width = w.Container == null ? 0 : w.Container.Width,
                         height = w.Container == null ? 0 : w.Container.Height,
                         tag = w.Tag,
+                        selectedTag = w.SelectedTag,
                         titulo = w.Title,
                         color = w.Color,
                         sensor = w.Tag
@@ -2207,7 +2639,7 @@ namespace GUI
                     WidgetTypeFromLayout(savedWidget.tipo),
                     savedWidget.x,
                     savedWidget.y,
-                    string.IsNullOrWhiteSpace(savedWidget.tag) ? savedWidget.sensor : savedWidget.tag,
+                    ResolveLayoutTag(savedWidget),
                     string.IsNullOrWhiteSpace(savedWidget.titulo) ? DefaultTitleFor(WidgetTypeFromLayout(savedWidget.tipo)) : savedWidget.titulo,
                     savedWidget.width > 0 ? savedWidget.width : CellSize * 3,
                     savedWidget.height > 0 ? savedWidget.height : CellSize * 2,
@@ -2215,6 +2647,20 @@ namespace GUI
             }
         }
 
+        private static string ResolveLayoutTag(DashboardWidgetLayout widget)
+        {
+            if (widget == null)
+            {
+                return string.Empty;
+            }
+
+            if (!string.IsNullOrWhiteSpace(widget.selectedTag))
+            {
+                return widget.selectedTag;
+            }
+
+            return string.IsNullOrWhiteSpace(widget.tag) ? widget.sensor : widget.tag;
+        }
         private static TipoWidget WidgetTypeFromLayout(string tipo)
         {
             if (string.Equals(tipo, "grafica", StringComparison.OrdinalIgnoreCase)
@@ -2251,6 +2697,16 @@ namespace GUI
             }
 
             widget.TrendLine.Points = points;
+            var slide = widget.TrendLine.RenderTransform as TranslateTransform;
+            if (slide == null)
+            {
+                slide = new TranslateTransform();
+                widget.TrendLine.RenderTransform = slide;
+            }
+            slide.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(-8, 0, TimeSpan.FromMilliseconds(220))
+            {
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            });
         }
 
         private static void ShowTrendHover(DashboardWidgetViewModel widget, Point position)
@@ -2362,7 +2818,7 @@ namespace GUI
         private static string FormatValue(object value)
         {
             double number;
-            if (double.TryParse(Convert.ToString(value, CultureInfo.InvariantCulture), NumberStyles.Any, CultureInfo.InvariantCulture, out number))
+            if (TryParseDouble(value, out number))
             {
                 return number.ToString("0.0", CultureInfo.InvariantCulture);
             }
@@ -2373,9 +2829,99 @@ namespace GUI
         private static double ToDouble(object value)
         {
             double number;
-            return double.TryParse(Convert.ToString(value, CultureInfo.InvariantCulture), NumberStyles.Any, CultureInfo.InvariantCulture, out number)
-                ? number
-                : 0;
+            return TryParseDouble(value, out number) ? number : 0;
+        }
+
+        private static bool IsNumericValue(object value)
+        {
+            double number;
+            return TryParseDouble(value, out number);
+        }
+
+        private static bool TryParseDouble(object value, out double number)
+        {
+            var text = Convert.ToString(value, CultureInfo.InvariantCulture);
+            if (double.TryParse(text, NumberStyles.Any, CultureInfo.InvariantCulture, out number))
+            {
+                return true;
+            }
+
+            text = (text ?? string.Empty).Replace(',', '.');
+            return double.TryParse(text, NumberStyles.Any, CultureInfo.InvariantCulture, out number);
+        }
+
+        private static string MetricTitleFromTag(string tag)
+        {
+            if (string.IsNullOrWhiteSpace(tag))
+            {
+                return "Valor numerico";
+            }
+
+            var separator = tag.LastIndexOf('.');
+            return separator >= 0 && separator < tag.Length - 1 ? tag.Substring(separator + 1) : tag;
+        }
+
+        private void AnimateNumericValue(DashboardWidgetViewModel widget, double target)
+        {
+            if (widget == null || widget.ValueBlock == null)
+            {
+                return;
+            }
+
+            if (!widget.HasDisplayedValue)
+            {
+                widget.DisplayedValue = target;
+                widget.HasDisplayedValue = true;
+                widget.ValueBlock.Text = target.ToString("0.0", CultureInfo.InvariantCulture);
+                return;
+            }
+
+            if (widget.ValueAnimationTimer != null)
+            {
+                widget.ValueAnimationTimer.Stop();
+            }
+
+            var start = widget.DisplayedValue;
+            var startTime = DateTime.Now;
+            var duration = TimeSpan.FromMilliseconds(380);
+            var timer = widget.ValueAnimationTimer ?? new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+            widget.ValueAnimationTimer = timer;
+            if (widget.ValueAnimationTick != null)
+            {
+                timer.Tick -= widget.ValueAnimationTick;
+            }
+
+            widget.ValueAnimationTick = (sender, args) =>
+            {
+                var progress = Math.Min(1, (DateTime.Now - startTime).TotalMilliseconds / duration.TotalMilliseconds);
+                var eased = 1 - Math.Pow(1 - progress, 3);
+                widget.DisplayedValue = start + (target - start) * eased;
+                widget.ValueBlock.Text = widget.DisplayedValue.ToString("0.0", CultureInfo.InvariantCulture);
+
+                if (progress >= 1)
+                {
+                    timer.Stop();
+                    widget.DisplayedValue = target;
+                    widget.ValueBlock.Text = target.ToString("0.0", CultureInfo.InvariantCulture);
+                }
+            };
+            timer.Tick += widget.ValueAnimationTick;
+            timer.Start();
+        }
+
+        private static void StopWidgetAnimations(DashboardWidgetViewModel widget)
+        {
+            if (widget == null || widget.ValueAnimationTimer == null)
+            {
+                return;
+            }
+
+            widget.ValueAnimationTimer.Stop();
+            if (widget.ValueAnimationTick != null)
+            {
+                widget.ValueAnimationTimer.Tick -= widget.ValueAnimationTick;
+                widget.ValueAnimationTick = null;
+            }
         }
 
         private static string UnitFor(string tag)
@@ -2387,6 +2933,10 @@ namespace GUI
             if (EndsWithTag(tag, ".Vibracion")) return "mm/s";
             if (EndsWithTag(tag, ".Corriente")) return "A";
             if (EndsWithTag(tag, ".Voltaje")) return "V";
+            if (EndsWithTag(tag, ".Eficiencia")) return "%";
+            if (EndsWithTag(tag, ".Potencia")) return "kW";
+            if (EndsWithTag(tag, ".Consumo")) return "kWh";
+            if (EndsWithTag(tag, ".Torque")) return "Nm";
             return string.Empty;
         }
 
@@ -2396,8 +2946,13 @@ namespace GUI
             if (EndsWithTag(tag, ".Corriente")) return "A";
             if (EndsWithTag(tag, ".Voltaje")) return "V";
             if (EndsWithTag(tag, ".Nivel")) return "%";
+            if (EndsWithTag(tag, ".Presion")) return "P";
+            if (EndsWithTag(tag, ".Vibracion")) return "~";
+            if (EndsWithTag(tag, ".RPM")) return "R";
+            if (EndsWithTag(tag, ".Eficiencia")) return "EF";
+            if (EndsWithTag(tag, ".Torque")) return "Nm";
             if (EndsWithTag(tag, ".Estado")) return "ON";
-            return "kW";
+            return "#";
         }
 
         private static Color AccentFor(string tag, TipoWidget type) //Esta función asigna colores específicos a los widgets según el tipo de dato que representan,
@@ -2446,6 +3001,11 @@ namespace GUI
             var maxHeight = widget.TankShell == null ? 108 : Math.Max(90, widget.TankShell.Height - 10);
             var targetHeight = maxHeight * bounded / 100;
             widget.TankLiquid.Background = BuildLiquidBrush(bounded);
+            widget.TankLiquid.BeginAnimation(OpacityProperty, new DoubleAnimation(0.78, 1, TimeSpan.FromMilliseconds(520))
+            {
+                AutoReverse = true,
+                EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
+            });
             widget.TankLiquid.BeginAnimation(HeightProperty, new DoubleAnimation(widget.TankLiquid.Height, targetHeight, TimeSpan.FromMilliseconds(420))
             {
                 EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
@@ -2646,10 +3206,12 @@ namespace GUI
         public DashboardWidgetViewModel()
         {
             History = new List<double>();
+            GaugeAngle = -55;
         }
 
         public TipoWidget Type { get; set; }
         public string Tag { get; set; }
+        public string SelectedTag { get; set; }
         public string Title { get; set; }
         public string ValueText { get; set; }
         public string Unit { get; set; }
@@ -2672,6 +3234,17 @@ namespace GUI
         public ListBox AlarmList { get; set; }
         public ObservableCollection<AlarmEventViewModel> AlarmItems { get; set; }
         public List<double> History { get; private set; }
+        public double DisplayedValue { get; set; }
+        public bool HasDisplayedValue { get; set; }
+        public double GaugeAngle { get; set; }
+        public DispatcherTimer ValueAnimationTimer { get; set; }
+        public EventHandler ValueAnimationTick { get; set; }
+    }
+
+    public class NumericTagOption
+    {
+        public string Tag { get; set; }
+        public string Display { get; set; }
     }
 
     public class AlarmEventViewModel
@@ -2824,6 +3397,7 @@ namespace GUI
         public double width { get; set; }
         public double height { get; set; }
         public string tag { get; set; }
+        public string selectedTag { get; set; }
         public string sensor { get; set; }
         public string titulo { get; set; }
         public string color { get; set; }
