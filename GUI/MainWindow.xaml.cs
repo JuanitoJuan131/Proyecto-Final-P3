@@ -1889,7 +1889,9 @@ namespace GUI
                 }
             }
         }
-
+        //Esta parte es para resetear los widgets del dashboard al cambiar de motor
+        //, para evitar que se muestren datos del motor anterior mientras se
+        //cargan los nuevos datos del motor seleccionado    
         private void ResetDashboardWidgets()
         {
             foreach (var widget in _widgets)
@@ -2179,7 +2181,10 @@ namespace GUI
             return "kW";
         }
 
-        private static Color AccentFor(string tag, TipoWidget type)
+        private static Color AccentFor(string tag, TipoWidget type) //Esta función asigna colores específicos a los widgets según el tipo de dato que representan,
+                                                                    //para mejorar la visualización y diferenciación de los mismos en el dashboard. Por ejemplo,
+                                                                    //las RPM se muestran en verde, la temperatura en naranja,
+                                                                    //la corriente en azul, etc. El panel de alarmas tiene un color distintivo para resaltar su importancia.
         {
             if (type == TipoWidget.PanelAlarmas) return Color.FromRgb(56, 189, 248);
             if (EndsWithTag(tag, ".RPM")) return Color.FromRgb(163, 230, 53);
