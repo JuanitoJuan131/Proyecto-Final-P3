@@ -117,6 +117,7 @@ namespace BLL.Dashboards
                     ParametrosJson = new JavaScriptSerializer().Serialize(new
                     {
                         tag = w.Tag,
+                        selectedTag = string.IsNullOrWhiteSpace(w.SelectedTag) ? w.Tag : w.SelectedTag,
                         titulo = w.Titulo,
                         width = w.Width,
                         height = w.Height,
@@ -164,6 +165,7 @@ namespace BLL.Dashboards
     {
         public TipoWidget TipoWidget { get; set; }
         public string Tag { get; set; }
+        public string SelectedTag { get; set; }
         public string Titulo { get; set; }
         public double X { get; set; }
         public double Y { get; set; }

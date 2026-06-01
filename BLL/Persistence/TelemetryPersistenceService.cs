@@ -9,7 +9,7 @@ namespace BLL.Persistence
 {
     public class TelemetryPersistenceService
     {
-        private const string UsuarioSimulacionEmail = "admin@visuallot.com";
+        private const string UsuarioSimulacionEmail = "masca@gmail.com";
         private const string ProyectoSimulacion = "Proyecto VisualIoT";
         private const string DashboardSimulacion = "Dashboard principal";
         private static readonly TimeSpan IntervaloHistorico = TimeSpan.FromSeconds(2);
