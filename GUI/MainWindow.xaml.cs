@@ -974,13 +974,13 @@ namespace GUI
 
         private void LoadPalette()
         {
-            WidgetPaletteItems.Add(new WidgetPaletteItem(TipoWidget.Medidor, "Gauge", "RPM, presion o vibracion"));
-            WidgetPaletteItems.Add(new WidgetPaletteItem(TipoWidget.Numerico, "Numerico", "Valor puntual de cualquier tag"));
-            WidgetPaletteItems.Add(new WidgetPaletteItem(TipoWidget.Tanque, "Tanque", "Nivel de pulpa o jugo"));
-            WidgetPaletteItems.Add(new WidgetPaletteItem(TipoWidget.Tendencia, "Tendencia", "Lecturas recientes"));
-            WidgetPaletteItems.Add(new WidgetPaletteItem(TipoWidget.Led, "Led", "Estado discreto o alarma"));
-            WidgetPaletteItems.Add(new WidgetPaletteItem(TipoWidget.Motor, "Motor", "Resumen de un equipo"));
-            WidgetPaletteItems.Add(new WidgetPaletteItem(TipoWidget.PanelAlarmas, "Alarmas", "Mensajes activos"));
+            WidgetPaletteItems.Add(new WidgetPaletteItem(TipoWidget.Medidor, "Gauge", "RPM, presion o vibracion", "G", Color.FromRgb(163, 230, 53)));
+            WidgetPaletteItems.Add(new WidgetPaletteItem(TipoWidget.Numerico, "Numerico", "Valor puntual de cualquier tag", "#", Color.FromRgb(79, 163, 255)));
+            WidgetPaletteItems.Add(new WidgetPaletteItem(TipoWidget.Tanque, "Tanque", "Nivel de pulpa o jugo", "T", Color.FromRgb(34, 211, 238)));
+            WidgetPaletteItems.Add(new WidgetPaletteItem(TipoWidget.Tendencia, "Tendencia", "Lecturas recientes", "~", Color.FromRgb(249, 115, 22)));
+            WidgetPaletteItems.Add(new WidgetPaletteItem(TipoWidget.Led, "Led", "Estado discreto o alarma", "L", Color.FromRgb(45, 212, 191)));
+            WidgetPaletteItems.Add(new WidgetPaletteItem(TipoWidget.Motor, "Motor", "Resumen de un equipo", "M", Color.FromRgb(167, 139, 250)));
+            WidgetPaletteItems.Add(new WidgetPaletteItem(TipoWidget.PanelAlarmas, "Alarmas", "Mensajes activos", "!", Color.FromRgb(248, 113, 113)));
         }
 
         private void CreateDashboardFromOptions(DashboardStartupOptions options)
@@ -1204,6 +1204,7 @@ namespace GUI
                 BorderBrush = new SolidColorBrush(Color.FromRgb(42, 64, 90)),
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(8),
+                ClipToBounds = true,
                 Padding = new Thickness(14, 12, 14, 12),
                 Child = BuildWidgetContent(widget),
                 Effect = new DropShadowEffect
@@ -1410,18 +1411,53 @@ namespace GUI
                 FontWeight = FontWeights.SemiBold
             });
 
-            var gauge = new Canvas { Width = 172, Height = 104, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 6, 0, 0) };
+            var gauge = new Canvas
+            {
+                Width = 172,
+                Height = 104,
+                ClipToBounds = true,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 6, 0, 0)
+            };
+
+            gauge.Children.Add(new Path
+            {
+                Data = CreateArcGeometry(86, 82, 70, 205, 335),
+                Stroke = new SolidColorBrush(Color.FromRgb(26, 42, 62)),
+                StrokeThickness = 12,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round
+            });
+            gauge.Children.Add(new Path
+            {
+                Data = CreateArcGeometry(86, 82, 70, 205, 335),
+                Stroke = new LinearGradientBrush(Color.FromRgb(34, 211, 238), Color.FromRgb(163, 230, 53), new Point(0, 0), new Point(1, 0)),
+                StrokeThickness = 5,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round,
+                Effect = new DropShadowEffect
+                {
+                    BlurRadius = 12,
+                    Direction = 0,
+                    ShadowDepth = 0,
+                    Opacity = 0.42,
+                    Color = Color.FromRgb(163, 230, 53)
+                }
+            });
+
             for (var i = 0; i < 9; i++)
             {
                 var angle = 205 + i * 16;
                 var tick = new Line
                 {
-                    X1 = 86 + Math.Cos(angle * Math.PI / 180) * 58,
-                    Y1 = 82 + Math.Sin(angle * Math.PI / 180) * 58,
-                    X2 = 86 + Math.Cos(angle * Math.PI / 180) * 72,
-                    Y2 = 82 + Math.Sin(angle * Math.PI / 180) * 72,
-                    Stroke = i >= 6 ? widget.AccentBrush : new SolidColorBrush(Color.FromRgb(55, 74, 100)),
-                    StrokeThickness = 3
+                    X1 = 86 + Math.Cos(angle * Math.PI / 180) * 56,
+                    Y1 = 82 + Math.Sin(angle * Math.PI / 180) * 56,
+                    X2 = 86 + Math.Cos(angle * Math.PI / 180) * 66,
+                    Y2 = 82 + Math.Sin(angle * Math.PI / 180) * 66,
+                    Stroke = i >= 6 ? widget.AccentBrush : new SolidColorBrush(Color.FromRgb(69, 88, 115)),
+                    StrokeThickness = 2.6,
+                    StrokeStartLineCap = PenLineCap.Round,
+                    StrokeEndLineCap = PenLineCap.Round
                 };
                 gauge.Children.Add(tick);
             }
@@ -1431,12 +1467,19 @@ namespace GUI
                 X1 = 86,
                 Y1 = 82,
                 X2 = 86,
-                Y2 = 25,
-                Stroke = widget.AccentBrush,
-                StrokeThickness = 4,
+                Y2 = 35,
+                Stroke = new SolidColorBrush(Color.FromRgb(220, 255, 126)),
+                StrokeThickness = 4.5,
                 StrokeStartLineCap = PenLineCap.Round,
                 StrokeEndLineCap = PenLineCap.Round,
-                RenderTransformOrigin = new Point(0.5, 1)
+                Effect = new DropShadowEffect
+                {
+                    BlurRadius = 10,
+                    Direction = 0,
+                    ShadowDepth = 0,
+                    Opacity = 0.60,
+                    Color = Color.FromRgb(163, 230, 53)
+                }
             };
             needle.RenderTransform = new RotateTransform(-55, 86, 82);
             gauge.Children.Add(needle);
@@ -1469,6 +1512,27 @@ namespace GUI
             widget.ValueBlock = value;
             widget.Needle = needle;
             return root;
+        }
+
+        private static Geometry CreateArcGeometry(double centerX, double centerY, double radius, double startAngle, double endAngle)
+        {
+            var start = PointOnCircle(centerX, centerY, radius, startAngle);
+            var end = PointOnCircle(centerX, centerY, radius, endAngle);
+            var figure = new PathFigure { StartPoint = start, IsClosed = false };
+            figure.Segments.Add(new ArcSegment
+            {
+                Point = end,
+                Size = new Size(radius, radius),
+                SweepDirection = SweepDirection.Clockwise,
+                IsLargeArc = Math.Abs(endAngle - startAngle) > 180
+            });
+            return new PathGeometry(new[] { figure });
+        }
+
+        private static Point PointOnCircle(double centerX, double centerY, double radius, double angle)
+        {
+            var radians = angle * Math.PI / 180;
+            return new Point(centerX + Math.Cos(radians) * radius, centerY + Math.Sin(radians) * radius);
         }
 
         private UIElement BuildTankWidget(DashboardWidgetViewModel widget)
@@ -1599,7 +1663,13 @@ namespace GUI
                 FontWeight = FontWeights.Bold
             });
 
-            var canvas = new Canvas { Height = 122, Margin = new Thickness(0, 16, 0, 0), Background = new SolidColorBrush(Color.FromRgb(8, 14, 24)) };
+            var canvas = new Canvas
+            {
+                Height = 122,
+                Margin = new Thickness(0, 16, 0, 0),
+                Background = new SolidColorBrush(Color.FromRgb(8, 14, 24)),
+                ClipToBounds = true
+            };
             for (var y = 20; y <= 100; y += 20)
             {
                 canvas.Children.Add(new Line
@@ -1617,14 +1687,74 @@ namespace GUI
             var line = new Polyline
             {
                 Stroke = widget.AccentBrush,
-                StrokeThickness = 3
+                StrokeThickness = 3,
+                StrokeLineJoin = PenLineJoin.Round
             };
             canvas.Children.Add(line);
+
+            var markerLine = new Line
+            {
+                Y1 = 8,
+                Y2 = 112,
+                Stroke = new SolidColorBrush(Color.FromArgb(155, 255, 255, 255)),
+                StrokeThickness = 1,
+                StrokeDashArray = new DoubleCollection { 4, 4 },
+                Visibility = Visibility.Collapsed,
+                IsHitTestVisible = false
+            };
+            canvas.Children.Add(markerLine);
+
+            var markerDot = new Ellipse
+            {
+                Width = 10,
+                Height = 10,
+                Fill = widget.AccentBrush,
+                Stroke = Brushes.White,
+                StrokeThickness = 1.5,
+                Visibility = Visibility.Collapsed,
+                IsHitTestVisible = false,
+                Effect = new DropShadowEffect
+                {
+                    BlurRadius = 8,
+                    Direction = 0,
+                    ShadowDepth = 0,
+                    Opacity = 0.65,
+                    Color = Color.FromRgb(255, 255, 255)
+                }
+            };
+            canvas.Children.Add(markerDot);
+
+            var tooltipText = new TextBlock
+            {
+                Foreground = Brushes.White,
+                FontWeight = FontWeights.Bold,
+                FontFamily = new FontFamily("Consolas"),
+                FontSize = 12
+            };
+            var tooltip = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(236, 9, 16, 28)),
+                BorderBrush = widget.AccentBrush,
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(8, 5, 8, 5),
+                Visibility = Visibility.Collapsed,
+                IsHitTestVisible = false,
+                Child = tooltipText
+            };
+            canvas.Children.Add(tooltip);
+
+            canvas.MouseMove += (sender, args) => ShowTrendHover(widget, args.GetPosition(canvas));
+            canvas.MouseLeave += (sender, args) => HideTrendHover(widget);
 
             Grid.SetRow(canvas, 1);
             root.Children.Add(canvas);
             widget.TrendLine = line;
             widget.TrendCanvas = canvas;
+            widget.TrendMarkerLine = markerLine;
+            widget.TrendMarkerDot = markerDot;
+            widget.TrendTooltip = tooltip;
+            widget.TrendTooltipText = tooltipText;
             return root;
         }
 
@@ -1924,6 +2054,7 @@ namespace GUI
                 if (widget.TrendLine != null)
                 {
                     widget.TrendLine.Points = new PointCollection();
+                    HideTrendHover(widget);
                 }
 
                 if (widget.AlarmList != null)
@@ -2101,6 +2232,7 @@ namespace GUI
         {
             if (widget.History.Count == 0)
             {
+                HideTrendHover(widget);
                 return;
             }
 
@@ -2119,6 +2251,93 @@ namespace GUI
             }
 
             widget.TrendLine.Points = points;
+        }
+
+        private static void ShowTrendHover(DashboardWidgetViewModel widget, Point position)
+        {
+            if (widget == null
+                || widget.TrendLine == null
+                || widget.TrendCanvas == null
+                || widget.TrendLine.Points == null
+                || widget.TrendLine.Points.Count == 0
+                || widget.History.Count == 0)
+            {
+                return;
+            }
+
+            var nearestIndex = 0;
+            var nearestDistance = double.MaxValue;
+            for (var i = 0; i < widget.TrendLine.Points.Count; i++)
+            {
+                var distance = Math.Abs(widget.TrendLine.Points[i].X - position.X);
+                if (distance < nearestDistance)
+                {
+                    nearestDistance = distance;
+                    nearestIndex = i;
+                }
+            }
+
+            var point = widget.TrendLine.Points[nearestIndex];
+            var valueIndex = Math.Min(nearestIndex, widget.History.Count - 1);
+            var valueText = widget.History[valueIndex].ToString("0.0", CultureInfo.InvariantCulture);
+            if (!string.IsNullOrWhiteSpace(widget.Unit))
+            {
+                valueText += " " + widget.Unit;
+            }
+
+            if (widget.TrendMarkerLine != null)
+            {
+                widget.TrendMarkerLine.X1 = point.X;
+                widget.TrendMarkerLine.X2 = point.X;
+                widget.TrendMarkerLine.Visibility = Visibility.Visible;
+            }
+
+            if (widget.TrendMarkerDot != null)
+            {
+                Canvas.SetLeft(widget.TrendMarkerDot, point.X - widget.TrendMarkerDot.Width / 2);
+                Canvas.SetTop(widget.TrendMarkerDot, point.Y - widget.TrendMarkerDot.Height / 2);
+                widget.TrendMarkerDot.Visibility = Visibility.Visible;
+            }
+
+            if (widget.TrendTooltipText != null)
+            {
+                widget.TrendTooltipText.Text = "Valor: " + valueText;
+            }
+
+            if (widget.TrendTooltip != null)
+            {
+                widget.TrendTooltip.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                var tooltipWidth = widget.TrendTooltip.DesiredSize.Width;
+                var tooltipHeight = widget.TrendTooltip.DesiredSize.Height;
+                var left = Clamp(point.X + 10, 4, Math.Max(4, widget.TrendCanvas.ActualWidth - tooltipWidth - 4));
+                var top = Clamp(point.Y - tooltipHeight - 10, 4, Math.Max(4, widget.TrendCanvas.ActualHeight - tooltipHeight - 4));
+                Canvas.SetLeft(widget.TrendTooltip, left);
+                Canvas.SetTop(widget.TrendTooltip, top);
+                widget.TrendTooltip.Visibility = Visibility.Visible;
+            }
+        }
+
+        private static void HideTrendHover(DashboardWidgetViewModel widget)
+        {
+            if (widget == null)
+            {
+                return;
+            }
+
+            if (widget.TrendMarkerLine != null)
+            {
+                widget.TrendMarkerLine.Visibility = Visibility.Collapsed;
+            }
+
+            if (widget.TrendMarkerDot != null)
+            {
+                widget.TrendMarkerDot.Visibility = Visibility.Collapsed;
+            }
+
+            if (widget.TrendTooltip != null)
+            {
+                widget.TrendTooltip.Visibility = Visibility.Collapsed;
+            }
         }
 
         private void AddEvent(string text)
@@ -2404,16 +2623,22 @@ namespace GUI
 
     public class WidgetPaletteItem
     {
-        public WidgetPaletteItem(TipoWidget type, string name, string description)
+        public WidgetPaletteItem(TipoWidget type, string name, string description, string icon, Color accent)
         {
             Type = type;
             Name = name;
             Description = description;
+            Icon = icon;
+            AccentBrush = new SolidColorBrush(accent);
+            AccentSoftBrush = new SolidColorBrush(Color.FromArgb(38, accent.R, accent.G, accent.B));
         }
 
         public TipoWidget Type { get; private set; }
         public string Name { get; private set; }
         public string Description { get; private set; }
+        public string Icon { get; private set; }
+        public Brush AccentBrush { get; private set; }
+        public Brush AccentSoftBrush { get; private set; }
     }
 
     public class DashboardWidgetViewModel
@@ -2438,6 +2663,10 @@ namespace GUI
         public Line Needle { get; set; }
         public Polyline TrendLine { get; set; }
         public Canvas TrendCanvas { get; set; }
+        public Line TrendMarkerLine { get; set; }
+        public Ellipse TrendMarkerDot { get; set; }
+        public Border TrendTooltip { get; set; }
+        public TextBlock TrendTooltipText { get; set; }
         public Border TankLiquid { get; set; }
         public Border TankShell { get; set; }
         public ListBox AlarmList { get; set; }
