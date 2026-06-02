@@ -547,7 +547,19 @@ namespace GUI
 
         private void SimulationManager_PersistenceWarning(string message)
         {
-            Dispatcher.Invoke(() => AddEvent(message));
+            if (Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
+            {
+                return;
+            }
+
+            try
+            {
+                Dispatcher.BeginInvoke(new Action(() => AddEvent(message)), DispatcherPriority.Background);
+            }
+            catch (TaskCanceledException)
+            {
+                // La ventana se esta cerrando y WPF cancelo el trabajo pendiente del Dispatcher.
+            }
         }
 
         private void SimulationManager_TagValueChanged(string tag, object value)
@@ -624,7 +636,7 @@ namespace GUI
         {
             var color = ParseColor(result.Color) ?? Color.FromRgb(239, 68, 68);
             AlertPopup.Visibility = Visibility.Visible;
-            AlertPopup.Background = new SolidColorBrush(Color.FromArgb(238, 30, 20, 24));
+            AlertPopup.Background = new SolidColorBrush(Color.FromArgb(190, 30, 20, 24));
             AlertPopup.BorderBrush = new SolidColorBrush(color);
             AlertTitleTextBlock.Text = result.Severity.ToUpperInvariant() + " - " + result.RuleName;
             AlertMessageTextBlock.Text = result.Description;

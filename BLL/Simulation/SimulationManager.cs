@@ -164,7 +164,7 @@ namespace BLL.Simulation
                 return;
             }
 
-            var tag = parts[parts.Length - 2] + "." + parts[parts.Length - 1];
+            var tag = NormalizeTag(parts[parts.Length - 2] + "." + parts[parts.Length - 1]);
             var normalizedPayload = payload.Replace(',', '.');
             double number;
             object value = double.TryParse(normalizedPayload, NumberStyles.Any, CultureInfo.InvariantCulture, out number)
@@ -189,6 +189,11 @@ namespace BLL.Simulation
                     return false;
                 }
 
+                if (TryUpdateDirectJsonTag(values))
+                {
+                    return true;
+                }
+
                 var device = GetText(values, "device");
                 if (string.IsNullOrWhiteSpace(device))
                 {
@@ -211,6 +216,9 @@ namespace BLL.Simulation
                 UpdateMappedTag(device, "Corriente", GetFirst(values, "corriente", "current"));
                 UpdateMappedTag(device, "Voltaje", GetFirst(values, "voltaje", "voltage"));
                 UpdateMappedTag(device, "Eficiencia", GetFirst(values, "eficiencia", "efficiency"));
+                UpdateMappedTag(device, "Potencia", GetFirst(values, "potencia", "power"));
+                UpdateMappedTag(device, "Consumo", GetFirst(values, "consumo", "energy"));
+                UpdateMappedTag(device, "Torque", GetFirst(values, "torque"));
                 UpdateMappedTag(device, "Estado", NormalizeState(GetFirst(values, "estado", "state")));
                 UpdateMappedTag(device, "Alarma", ResolveAlarmText(values));
                 return true;
@@ -222,6 +230,27 @@ namespace BLL.Simulation
             }
         }
 
+        private bool TryUpdateDirectJsonTag(Dictionary<string, object> values)
+        {
+            var tag = GetText(values, "tag", "Tag", "sensor", "variable");
+            var value = GetFirst(values, "value", "valor", "lectura", "reading");
+            if (!string.IsNullOrWhiteSpace(tag) && value != null)
+            {
+                UpdateTag(NormalizeTag(tag), NormalizeTelemetryValue(value));
+                return true;
+            }
+
+            var device = GetText(values, "device", "dispositivo", "motor");
+            var metric = GetText(values, "metric", "metrica", "sensor", "variable");
+            if (!string.IsNullOrWhiteSpace(device) && !string.IsNullOrWhiteSpace(metric) && value != null)
+            {
+                UpdateMappedTag(NormalizeDeviceId(device), NormalizeMetricName(metric), NormalizeTelemetryValue(value));
+                return true;
+            }
+
+            return false;
+        }
+
         private void UpdateMappedTag(string device, string metric, object value)
         {
             if (value == null)
@@ -229,7 +258,7 @@ namespace BLL.Simulation
                 return;
             }
 
-            UpdateTag(device + "." + metric, value);
+            UpdateTag(NormalizeDeviceId(device) + "." + NormalizeMetricName(metric), NormalizeTelemetryValue(value));
         }
 
         private static object ResolveAlarmText(Dictionary<string, object> values)
@@ -272,14 +301,20 @@ namespace BLL.Simulation
                 {
                     return value;
                 }
+
+                var match = values.FirstOrDefault(item => string.Equals(item.Key, key, StringComparison.OrdinalIgnoreCase));
+                if (!string.IsNullOrWhiteSpace(match.Key))
+                {
+                    return match.Value;
+                }
             }
 
             return null;
         }
 
-        private static string GetText(Dictionary<string, object> values, string key)
+        private static string GetText(Dictionary<string, object> values, params string[] keys)
         {
-            return Convert.ToString(GetFirst(values, key), CultureInfo.InvariantCulture);
+            return Convert.ToString(GetFirst(values, keys), CultureInfo.InvariantCulture);
         }
 
         private static string ResolveDeviceFromTopic(string topic)
@@ -314,6 +349,20 @@ namespace BLL.Simulation
                 return "TANQUE_01";
             }
 
+            var compact = device.Replace("_", string.Empty)
+                .Replace("-", string.Empty)
+                .Replace(" ", string.Empty)
+                .Replace(":", string.Empty);
+            if (compact.StartsWith("motor", StringComparison.OrdinalIgnoreCase) && compact.Length > 5)
+            {
+                return "MOTOR_" + compact.Substring(5).PadLeft(2, '0').ToUpperInvariant();
+            }
+
+            if (compact.StartsWith("tanque", StringComparison.OrdinalIgnoreCase) && compact.Length > 6)
+            {
+                return "TANQUE_" + compact.Substring(6).PadLeft(2, '0').ToUpperInvariant();
+            }
+
             var separator = device.IndexOfAny(new[] { '-', ' ', ':' });
             if (separator > 0)
             {
@@ -331,6 +380,63 @@ namespace BLL.Simulation
             }
 
             return device.ToUpperInvariant();
+        }
+
+        private static string NormalizeTag(string tag)
+        {
+            if (string.IsNullOrWhiteSpace(tag))
+            {
+                return string.Empty;
+            }
+
+            tag = tag.Trim().Replace('/', '.').Replace('\\', '.');
+            var parts = tag.Split(new[] { '.' }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length < 2)
+            {
+                return tag.ToUpperInvariant();
+            }
+
+            var device = NormalizeDeviceId(parts[parts.Length - 2]);
+            var metric = NormalizeMetricName(parts[parts.Length - 1]);
+            return device + "." + metric;
+        }
+
+        private static string NormalizeMetricName(string metric)
+        {
+            metric = (metric ?? string.Empty).Trim();
+            if (metric.Length == 0)
+            {
+                return metric;
+            }
+
+            var key = metric.Replace("_", string.Empty)
+                .Replace("-", string.Empty)
+                .Replace(" ", string.Empty)
+                .ToLowerInvariant();
+
+            if (key == "rpm" || key == "velocidad") return "RPM";
+            if (key == "temperatura" || key == "temp" || key == "temperature") return "Temperatura";
+            if (key == "niveltanque" || key == "nivel" || key == "level") return "Nivel";
+            if (key == "presion" || key == "pressure") return "Presion";
+            if (key == "vibracion" || key == "vibration") return "Vibracion";
+            if (key == "corriente" || key == "current" || key == "amperaje") return "Corriente";
+            if (key == "voltaje" || key == "voltage") return "Voltaje";
+            if (key == "eficiencia" || key == "efficiency") return "Eficiencia";
+            if (key == "potencia" || key == "power") return "Potencia";
+            if (key == "consumo" || key == "energy") return "Consumo";
+            if (key == "torque") return "Torque";
+            if (key == "estado" || key == "state") return "Estado";
+            if (key == "alarma" || key == "alarm") return "Alarma";
+            return CultureInfo.InvariantCulture.TextInfo.ToTitleCase(metric.ToLowerInvariant());
+        }
+
+        private static object NormalizeTelemetryValue(object value)
+        {
+            var text = Convert.ToString(value, CultureInfo.InvariantCulture);
+            double number;
+            return double.TryParse(text.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out number)
+                ? (object)number
+                : value;
         }
 
         private void UpdateTag(string tag, object value)

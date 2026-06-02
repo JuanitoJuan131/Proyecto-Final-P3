@@ -9,11 +9,12 @@ namespace BLL.Persistence
 {
     public class TelemetryPersistenceService
     {
-        private const string UsuarioSimulacionEmail = "masca@gmail.com";
+        private const string UsuarioSimulacionEmail = "admin@visualiot.com";
         private const string ProyectoSimulacion = "Proyecto VisualIoT";
         private const string DashboardSimulacion = "Dashboard principal";
         private static readonly TimeSpan IntervaloHistorico = TimeSpan.FromSeconds(2);
         private static readonly TimeSpan IntervaloReintentoConexion = TimeSpan.FromSeconds(15);
+        private static readonly TimeSpan IntervaloAvisoPersistencia = TimeSpan.FromMinutes(1);
 
         private readonly object _sync = new object();
         private readonly UsuarioRepositorio _usuarioRepositorio = new UsuarioRepositorio();
@@ -28,6 +29,8 @@ namespace BLL.Persistence
 
         private bool _inicializado;
         private DateTime _ultimoErrorConexion = DateTime.MinValue;
+        private DateTime _ultimoAvisoPersistencia = DateTime.MinValue;
+        private string _ultimoMensajePersistencia;
         private int _idDashboard;
 
         public event Action<string> PersistenceWarning;
@@ -80,9 +83,23 @@ namespace BLL.Persistence
                 catch (Exception ex)
                 {
                     _ultimoErrorConexion = DateTime.Now;
-                    PersistenceWarning?.Invoke("No se pudo persistir telemetria en Oracle: " + ex.Message);
+                    NotificarAdvertenciaPersistencia("No se pudo persistir telemetria en Oracle: " + ex.Message);
                 }
             }
+        }
+
+        private void NotificarAdvertenciaPersistencia(string mensaje)
+        {
+            var ahora = DateTime.Now;
+            if (string.Equals(_ultimoMensajePersistencia, mensaje, StringComparison.OrdinalIgnoreCase)
+                && ahora - _ultimoAvisoPersistencia < IntervaloAvisoPersistencia)
+            {
+                return;
+            }
+
+            _ultimoMensajePersistencia = mensaje;
+            _ultimoAvisoPersistencia = ahora;
+            PersistenceWarning?.Invoke(mensaje);
         }
 
         private void InicializarSiHaceFalta()
