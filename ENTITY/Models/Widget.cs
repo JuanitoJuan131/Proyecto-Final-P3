@@ -11,7 +11,8 @@ namespace ENTITY.Models
         Tendencia,
         Led,
         Motor,
-        PanelAlarmas
+        PanelAlarmas,
+        BarraProgreso
     }
 
     public class Widget

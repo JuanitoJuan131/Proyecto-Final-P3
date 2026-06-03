@@ -1,6 +1,7 @@
 using MQTTnet;
 using MQTTnet.Client;
 using MQTTnet.Client.Options;
+using MQTTnet.Client.Subscribing;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -108,6 +109,8 @@ namespace BLL.Mqtt
             }
         }
 
+        public event Action<string> SubscriptionResult;
+
         public async Task SubscribeAsync(string topic)
         {
             if (!IsConnected)
@@ -129,8 +132,22 @@ namespace BLL.Mqtt
             }
 
             Trace.TraceInformation("MQTT subscribing to {0}", topic);
-            await _client.SubscribeAsync(topic);
+
+            // Use explicit QoS 1 (at-least-once) and check result
+            var options = new MqttClientSubscribeOptionsBuilder()
+                .WithTopicFilter(f => f.WithTopic(topic).WithAtLeastOnceQoS())
+                .Build();
+
+            var result = await _client.SubscribeAsync(options);
             _activeSubscriptions.Add(topic);
+
+            foreach (var item in result.Items)
+            {
+                var code = item.ResultCode.ToString();
+                var msg = string.Format("Suscrito a [{0}] QoS1 -> codigo: {1}", item.TopicFilter.Topic, code);
+                Trace.TraceInformation("MQTT {0}", msg);
+                SubscriptionResult?.Invoke(msg);
+            }
         }
 
         public async Task PublishAsync(string topic, object value)

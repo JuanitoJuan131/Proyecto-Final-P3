@@ -9,8 +9,8 @@ namespace DAL.Repositories
     {
         public int Insertar(Dispositivo entidad)
         {
-            const string sql = @"INSERT INTO dispositivos (nombre, tipo, protocolo, simulado, id_azure_iot, id_dashboard)
-                                 VALUES (:nombre, :tipo, :protocolo, :simulado, :id_azure_iot, :id_dashboard)
+            const string sql = @"INSERT INTO dispositivos (nombre, tipo, protocolo, simulado, id_dashboard)
+                                 VALUES (:nombre, :tipo, :protocolo, :simulado,:id_dashboard)
                                  RETURNING id_dispositivo INTO :id";
             using (var conexion = CrearConexion())
             using (var comando = CrearComando(conexion, sql))
@@ -27,7 +27,7 @@ namespace DAL.Repositories
         public void Actualizar(Dispositivo entidad)
         {
             Ejecutar(@"UPDATE dispositivos
-                      SET nombre = :nombre, tipo = :tipo, protocolo = :protocolo, simulado = :simulado, id_azure_iot = :id_azure_iot, id_dashboard = :id_dashboard
+                      SET nombre = :nombre, tipo = :tipo, protocolo = :protocolo, simulado = :simulado, id_dashboard = :id_dashboard
                       WHERE id_dispositivo = :id", comando =>
             {
                 Parametros(comando, entidad);
@@ -62,7 +62,6 @@ namespace DAL.Repositories
             AgregarParametro(comando, "tipo", OracleDbType.Varchar2, entidad.Tipo);
             AgregarParametro(comando, "protocolo", OracleDbType.Varchar2, entidad.Protocolo);
             AgregarParametroBooleano(comando, "simulado", entidad.Simulado);
-            AgregarParametro(comando, "id_azure_iot", OracleDbType.Varchar2, entidad.IdAzureIot);
             AgregarParametro(comando, "id_dashboard", OracleDbType.Int32, entidad.IdDashboard);
         }
 
@@ -75,7 +74,6 @@ namespace DAL.Repositories
                 Tipo = LeerTexto(lector, "tipo"),
                 Protocolo = LeerTexto(lector, "protocolo"),
                 Simulado = LeerBooleano(lector, "simulado"),
-                IdAzureIot = LeerTexto(lector, "id_azure_iot"),
                 IdDashboard = LeerEntero(lector, "id_dashboard")
             };
         }

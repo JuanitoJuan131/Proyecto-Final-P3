@@ -24,7 +24,7 @@ namespace GUI
     public partial class MainWindow : Window
     {
         private const int CellSize = 80;
-        private static readonly TimeSpan DeviceOfflineTimeout = TimeSpan.FromSeconds(8);
+        private static readonly TimeSpan DeviceOfflineTimeout = TimeSpan.FromSeconds(20);
         private readonly AutomationRuleService _automationService = new AutomationRuleService();
         private readonly DashboardWorkspaceService _dashboardService = new DashboardWorkspaceService();
         private readonly SimulationManager _simulationManager = new SimulationManager();
@@ -52,6 +52,9 @@ namespace GUI
         private int _lastMqttPort;
         private string _lastMqttTopic;
         private int _mqttMessageCount;
+        private DispatcherTimer _noDataWarningTimer;
+        private DispatcherTimer _esp32SimTimer;
+        private bool _esp32SimActive;
         private DashboardStartupOptions _startupOptions;
         private string _selectedMotorId;
         private int _currentProjectId;
@@ -112,8 +115,10 @@ namespace GUI
 
         private async void Window_Closing(object sender, CancelEventArgs e)
         {
+            StopEsp32Simulation();
             _simulationManager.StopSimulation();
             _deviceHealthTimer.Stop();
+            _noDataWarningTimer?.Stop();
             _manualMqttDisconnect = true;
             await _simulationManager.Mqtt.DisconnectAsync();
         }
@@ -168,6 +173,23 @@ namespace GUI
                 StatusBarTextBlock.Text = "Suscrito a " + _lastMqttTopic;
                 AddEvent("MQTT conectado a " + _lastMqttServer);
                 AddEvent("Esperando datos del ESP32 en " + _lastMqttTopic);
+
+                // Aviso si en 8 s no llega ningun mensaje
+                _noDataWarningTimer?.Stop();
+                var countAtConnect = _mqttMessageCount;
+                _noDataWarningTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(8) };
+                _noDataWarningTimer.Tick += (s, args) =>
+                {
+                    _noDataWarningTimer.Stop();
+                    if (_mqttMessageCount == countAtConnect && _simulationManager.MqttTelemetryActive)
+                    {
+                        AddEvent("SIN DATOS: el broker no recibe mensajes del ESP32. Verifica:");
+                        AddEvent("  1) Que Wokwi este corriendo y el Serial muestre 'Conectado'");
+                        AddEvent("  2) Usa el boton 'Simular ESP32' para probar el pipeline local");
+                        AddEvent("  3) Si Simular ESP32 funciona pero Wokwi no, el broker es el problema");
+                    }
+                };
+                _noDataWarningTimer.Start();
             }
             catch (Exception ex)
             {
@@ -190,6 +212,7 @@ namespace GUI
 
         private async Task DisconnectMqttAsync(bool manual)
         {
+            StopEsp32Simulation();
             try
             {
                 _manualMqttDisconnect = manual;
@@ -220,18 +243,19 @@ namespace GUI
         private void DeviceHealthTimer_Tick(object sender, EventArgs e)
         {
             if (!_simulationManager.MqttTelemetryActive)
-            {
                 return;
-            }
 
             var now = DateTime.Now;
             foreach (var entry in _lastSeenByMotor.ToList())
             {
-                if (now - entry.Value > DeviceOfflineTimeout)
+                var elapsed = (int)(now - entry.Value).TotalSeconds;
+                if (elapsed >= (int)DeviceOfflineTimeout.TotalSeconds)
                 {
-                    AddEvent("Dispositivo OFFLINE: " + entry.Key + " sin telemetria por " + DeviceOfflineTimeout.TotalSeconds.ToString("0", CultureInfo.InvariantCulture) + " s");
+                    // Solo marcar como "Sin señal" — los últimos valores PERMANECEN visibles
+                    AddEvent("Sin señal: " + entry.Key + " — ultima telemetria hace " + elapsed + " s");
+                    SetMotorRuntimeState(entry.Key, "Sin señal", "Esperando telemetria de " + entry.Key);
                     _lastSeenByMotor.Remove(entry.Key);
-                    _simulationManager.ClearMotorTags(entry.Key);
+                    // NO llamamos ClearMotorTags — los widgets conservan sus últimos valores
                 }
             }
         }
@@ -273,14 +297,22 @@ namespace GUI
             ShutdownMotor(_selectedMotorId, "Apagado manual desde SCADA");
         }
 
-        private void RestartMotorButton_Click(object sender, RoutedEventArgs e)
+        private async void RestartMotorButton_Click(object sender, RoutedEventArgs e)
         {
             if (string.IsNullOrWhiteSpace(_selectedMotorId))
             {
                 return;
             }
 
-            if (!_simulationManager.MqttTelemetryActive && !_simulationRunning)
+            if (_simulationManager.MqttTelemetryActive)
+            {
+                await _simulationManager.PublishCommandAsync(_selectedMotorId, "reiniciar");
+                AddEvent("Comando MQTT enviado: reiniciar -> " + _selectedMotorId);
+                SetMotorRuntimeState(_selectedMotorId, "Arrancando", "Reinicio solicitado via MQTT");
+                return;
+            }
+
+            if (!_simulationRunning)
             {
                 _simulationManager.StartSimulation();
                 _simulationRunning = true;
@@ -291,6 +323,84 @@ namespace GUI
             SetMotorRuntimeState(_selectedMotorId, "Arrancando", "Reinicio solicitado");
             RegisterAlarm(_selectedMotorId + ".Alarma", "Reinicio manual del motor", "Normal", false);
             AddEvent("Reinicio solicitado para " + _selectedMotorId);
+        }
+
+        private async void TurnOnMotorButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(_selectedMotorId))
+            {
+                return;
+            }
+
+            if (_simulationManager.MqttTelemetryActive)
+            {
+                await _simulationManager.PublishCommandAsync(_selectedMotorId, "encender");
+                AddEvent("Comando MQTT enviado: encender -> " + _selectedMotorId);
+                SetMotorRuntimeState(_selectedMotorId, "EnMarcha", "Encendido via MQTT");
+                return;
+            }
+
+            if (!_simulationRunning)
+            {
+                _simulationManager.StartSimulation();
+                _simulationRunning = true;
+                SimulationButton.Content = "Detener simulacion";
+                AddEvent("Motor encendido: " + _selectedMotorId);
+            }
+        }
+
+        private async void TestEsp32Button_Click(object sender, RoutedEventArgs e)
+        {
+            if (!_simulationManager.Mqtt.IsConnected)
+            {
+                AddEvent("Conecta MQTT primero para usar Simular ESP32");
+                StatusBarTextBlock.Text = "Conecta MQTT antes de simular";
+                return;
+            }
+
+            if (_esp32SimActive)
+            {
+                StopEsp32Simulation();
+                return;
+            }
+
+            StartEsp32Simulation();
+            // Publica el primer dato de inmediato, sin esperar el tick
+            await _simulationManager.PublishSimulatedEsp32Async(_selectedMotorId ?? "MOTOR_01");
+        }
+
+        private void StartEsp32Simulation()
+        {
+            _esp32SimActive = true;
+            TestEsp32Button.Content = "Detener ESP32";
+            TestEsp32Button.Background = new SolidColorBrush(Color.FromRgb(90, 20, 20));
+            TestEsp32Button.BorderBrush = new SolidColorBrush(Color.FromRgb(239, 68, 68));
+
+            AddEvent("Simulacion ESP32 ACTIVA — publicando cada 1 s en visualiot/"
+                + (_selectedMotorId ?? "MOTOR_01") + "/datos");
+
+            _esp32SimTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+            _esp32SimTimer.Tick += async (s, args) =>
+            {
+                if (!_simulationManager.Mqtt.IsConnected || !_esp32SimActive)
+                {
+                    StopEsp32Simulation();
+                    return;
+                }
+                await _simulationManager.PublishSimulatedEsp32Async(_selectedMotorId ?? "MOTOR_01");
+            };
+            _esp32SimTimer.Start();
+        }
+
+        private void StopEsp32Simulation()
+        {
+            _esp32SimActive = false;
+            _esp32SimTimer?.Stop();
+            _esp32SimTimer = null;
+            TestEsp32Button.Content = "Simular ESP32";
+            TestEsp32Button.Background = new SolidColorBrush(Color.FromRgb(26, 13, 46));
+            TestEsp32Button.BorderBrush = new SolidColorBrush(Color.FromRgb(168, 85, 247));
+            AddEvent("Simulacion ESP32 detenida");
         }
 
         private async void StopMotorInputButton_Click(object sender, RoutedEventArgs e)
@@ -485,6 +595,16 @@ namespace GUI
                     ? new SolidColorBrush(Color.FromRgb(40, 199, 164))
                     : new SolidColorBrush(Color.FromRgb(143, 160, 179));
 
+                MqttStatusDot.Background = new SolidColorBrush(connected
+                    ? Color.FromRgb(40, 199, 164)
+                    : Color.FromRgb(74, 85, 104));
+                var glow = MqttStatusDot.Effect as DropShadowEffect;
+                if (glow != null)
+                {
+                    glow.Opacity = connected ? 0.85 : 0;
+                    glow.Color = Color.FromRgb(40, 199, 164);
+                }
+
                 if (connected)
                 {
                     _mqttReconnectPending = false;
@@ -538,9 +658,12 @@ namespace GUI
             Dispatcher.Invoke(() =>
             {
                 _mqttMessageCount++;
-                if (_mqttMessageCount <= 5 || _mqttMessageCount % 10 == 0)
-                { 
-                    AddEvent("MQTT <- " + topic + " = " + payload);
+                if (_mqttMessageCount <= 8 || _mqttMessageCount % 20 == 0)
+                {
+                    var preview = payload != null && payload.Length > 90
+                        ? payload.Substring(0, 90) + "..."
+                        : payload;
+                    AddEvent("ESP32 [" + _mqttMessageCount + "] " + topic + " -> " + preview);
                 }
             });
         }
@@ -843,7 +966,7 @@ namespace GUI
             }
         }
 
-        private void ShutdownMotor(string motorId, string reason)
+        private async void ShutdownMotor(string motorId, string reason)
         {
             if (string.IsNullOrWhiteSpace(motorId))
             {
@@ -852,11 +975,9 @@ namespace GUI
 
             if (_simulationManager.MqttTelemetryActive)
             {
-                _manualMqttDisconnect = true;
-                _simulationManager.UseMqttTelemetry(false);
-                _simulationManager.Mqtt.DisconnectAsync();
-                ConnectionStatusTextBlock.Text = "MQTT desconectado";
-                ConnectionStatusTextBlock.Foreground = new SolidColorBrush(Color.FromRgb(182, 193, 208));
+                // Send apagar command to physical device — keep MQTT connected for monitoring
+                await _simulationManager.PublishCommandAsync(motorId, "apagar");
+                AddEvent("Comando MQTT enviado: apagar -> " + motorId);
             }
             else if (_simulationRunning)
             {
@@ -956,7 +1077,7 @@ namespace GUI
 
                 if (widget.Needle != null)
                 {
-                    widget.Needle.RenderTransform = new RotateTransform(-55, 86, 82);
+                    widget.Needle.RenderTransform = new RotateTransform(-55, 86, 84);
                     widget.GaugeAngle = -55;
                 }
 
@@ -995,8 +1116,8 @@ namespace GUI
         {
             WidgetPaletteItems.Add(new WidgetPaletteItem(TipoWidget.Medidor, "Gauge", "RPM, presion o vibracion", "G", Color.FromRgb(163, 230, 53)));
             WidgetPaletteItems.Add(new WidgetPaletteItem(TipoWidget.Numerico, "Numerico", "Valor puntual de cualquier tag", "#", Color.FromRgb(79, 163, 255)));
-            WidgetPaletteItems.Add(new WidgetPaletteItem(TipoWidget.Tanque, "Tanque", "Nivel de pulpa o jugo", "T", Color.FromRgb(34, 211, 238)));
-            WidgetPaletteItems.Add(new WidgetPaletteItem(TipoWidget.Tendencia, "Tendencia", "Lecturas recientes", "~", Color.FromRgb(249, 115, 22)));
+            WidgetPaletteItems.Add(new WidgetPaletteItem(TipoWidget.Tanque, "Tanque", "Nivel de liquido en %", "T", Color.FromRgb(34, 211, 238)));
+            WidgetPaletteItems.Add(new WidgetPaletteItem(TipoWidget.Tendencia, "Tendencia", "Historico de lecturas", "~", Color.FromRgb(249, 115, 22)));
             WidgetPaletteItems.Add(new WidgetPaletteItem(TipoWidget.Led, "Led", "Estado discreto o alarma", "L", Color.FromRgb(45, 212, 191)));
             WidgetPaletteItems.Add(new WidgetPaletteItem(TipoWidget.Motor, "Motor", "Resumen de un equipo", "M", Color.FromRgb(167, 139, 250)));
             WidgetPaletteItems.Add(new WidgetPaletteItem(TipoWidget.PanelAlarmas, "Alarmas", "Mensajes activos", "!", Color.FromRgb(248, 113, 113)));
@@ -1199,11 +1320,19 @@ namespace GUI
         private void AddDefaultWidgets(string motorId)
         {
             motorId = string.IsNullOrWhiteSpace(motorId) ? "MOTOR_01" : motorId;
-            AddWidget(TipoWidget.Medidor, 0, 0, motorId + ".RPM", "Velocidad RPM");
-            AddWidget(TipoWidget.Numerico, CellSize * 3, 0, motorId + ".Temperatura", "Temperatura");
-            AddWidget(TipoWidget.Tanque, CellSize * 6, 0, motorId + ".Nivel", "Nivel de tanque");
-            AddWidget(TipoWidget.Tendencia, 0, CellSize * 3, motorId + ".RPM", "Historico RPM");
-            AddWidget(TipoWidget.PanelAlarmas, CellSize * 4, CellSize * 3, motorId + ".Alarma", "Alarmas");
+            // Fila superior: variables principales del ESP32
+            AddWidget(TipoWidget.Medidor,  0,            0,            motorId + ".RPM",         "Velocidad RPM");
+            AddWidget(TipoWidget.Numerico, CellSize * 3, 0,            motorId + ".Temperatura", "Temperatura");
+            AddWidget(TipoWidget.Numerico, CellSize * 6, 0,            motorId + ".Voltaje",     "Voltaje");
+            AddWidget(TipoWidget.Numerico, CellSize * 9, 0,            motorId + ".Corriente",   "Corriente");
+            // Fila media: nivel, eficiencia, torque, vibracion
+            AddWidget(TipoWidget.Tanque,   0,            CellSize * 3, motorId + ".Nivel",       "Nivel");
+            AddWidget(TipoWidget.Numerico, CellSize * 3, CellSize * 3, motorId + ".Eficiencia",  "Eficiencia %");
+            AddWidget(TipoWidget.Numerico, CellSize * 6, CellSize * 3, motorId + ".Torque",      "Torque");
+            AddWidget(TipoWidget.Numerico, CellSize * 9, CellSize * 3, motorId + ".Vibracion",   "Vibracion");
+            // Fila inferior: tendencia y alarmas
+            AddWidget(TipoWidget.Tendencia,    0,            CellSize * 6, motorId + ".RPM",    "Historico RPM");
+            AddWidget(TipoWidget.PanelAlarmas, CellSize * 5, CellSize * 6, motorId + ".Alarma", "Alarmas");
         }
 
         private void AddWidget(TipoWidget type, double left, double top)
@@ -1300,7 +1429,7 @@ namespace GUI
         {
             var menu = new ContextMenu();
 
-            if (widget.Type == TipoWidget.Numerico || widget.Type == TipoWidget.Tendencia)
+            if (widget.Type == TipoWidget.Numerico || widget.Type == TipoWidget.Tendencia || widget.Type == TipoWidget.BarraProgreso)
             {
                 var changeTagItem = new MenuItem { Header = "Cambiar variable" };
                 changeTagItem.Click += (sender, args) => ChangeWidgetNumericTag(widget);
@@ -1437,7 +1566,7 @@ namespace GUI
                 }
             }
 
-            foreach (var suffix in new[] { ".Temperatura", ".RPM", ".Corriente", ".Voltaje", ".Vibracion", ".Presion", ".Nivel", ".Eficiencia", ".Consumo", ".Potencia", ".Torque" })
+            foreach (var suffix in new[] { ".Temperatura", ".RPM", ".Corriente", ".Voltaje", ".Vibracion", ".Presion", ".Nivel", ".Eficiencia", ".Consumo", ".Potencia", ".Torque", ".HorasOp" })
             {
                 yield return prefix.TrimEnd('.') + suffix;
             }
@@ -1638,9 +1767,125 @@ namespace GUI
                     return BuildStateWidget(widget);
                 case TipoWidget.PanelAlarmas:
                     return BuildAlarmWidget(widget);
+                case TipoWidget.BarraProgreso:
+                    return BuildProgressBarWidget(widget);
                 default:
                     return BuildMetricWidget(widget);
             }
+        }
+
+        private UIElement BuildProgressBarWidget(DashboardWidgetViewModel widget)
+        {
+            var root = new Grid();
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            root.RowDefinitions.Add(new RowDefinition());
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+            root.Children.Add(new TextBlock
+            {
+                Text = widget.Title.ToUpperInvariant(),
+                Foreground = new SolidColorBrush(Color.FromRgb(158, 200, 234)),
+                FontSize = 12,
+                FontWeight = FontWeights.SemiBold
+            });
+
+            var valueRow = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 10, 0, 0)
+            };
+            var value = new TextBlock
+            {
+                Text = widget.ValueText,
+                FontSize = 34,
+                FontFamily = new FontFamily("Consolas"),
+                FontWeight = FontWeights.Bold,
+                Foreground = Brushes.White
+            };
+            valueRow.Children.Add(value);
+            valueRow.Children.Add(new TextBlock
+            {
+                Text = " " + widget.Unit,
+                Foreground = new SolidColorBrush(Color.FromRgb(165, 188, 209)),
+                VerticalAlignment = VerticalAlignment.Bottom,
+                Margin = new Thickness(2, 0, 0, 6),
+                FontWeight = FontWeights.SemiBold
+            });
+            Grid.SetRow(valueRow, 1);
+            root.Children.Add(valueRow);
+
+            var trackBorder = new Border
+            {
+                Height = 20,
+                CornerRadius = new CornerRadius(10),
+                Background = new SolidColorBrush(Color.FromRgb(20, 32, 48)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(40, 64, 90)),
+                BorderThickness = new Thickness(1),
+                Margin = new Thickness(0, 4, 0, 0),
+                ClipToBounds = true
+            };
+            var bar = new ProgressBar
+            {
+                Minimum = 0,
+                Maximum = 100,
+                Value = 0,
+                Height = 20,
+                Foreground = widget.AccentBrush,
+                Background = Brushes.Transparent,
+                BorderThickness = new Thickness(0),
+                Template = BuildProgressBarTemplate(widget.AccentBrush)
+            };
+            trackBorder.Child = bar;
+            Grid.SetRow(trackBorder, 2);
+            root.Children.Add(trackBorder);
+
+            var footer = new TextBlock
+            {
+                Text = widget.Tag,
+                Foreground = new SolidColorBrush(Color.FromRgb(93, 120, 148)),
+                FontSize = 11,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                Margin = new Thickness(0, 6, 0, 0)
+            };
+            Grid.SetRow(footer, 3);
+            root.Children.Add(footer);
+
+            widget.ValueBlock = value;
+            widget.Progress = bar;
+            widget.FooterBlock = footer;
+            return root;
+        }
+
+        private static ControlTemplate BuildProgressBarTemplate(Brush accentBrush)
+        {
+            var template = new ControlTemplate(typeof(ProgressBar));
+            var factory = new FrameworkElementFactory(typeof(Border));
+            factory.SetValue(Border.CornerRadiusProperty, new CornerRadius(10));
+            factory.SetValue(Border.BackgroundProperty, Brushes.Transparent);
+
+            var trackFactory = new FrameworkElementFactory(typeof(Border));
+            trackFactory.SetValue(FrameworkElement.NameProperty, "PART_Track");
+
+            var indicatorFactory = new FrameworkElementFactory(typeof(Border));
+            indicatorFactory.SetValue(FrameworkElement.NameProperty, "PART_Indicator");
+            indicatorFactory.SetValue(Border.CornerRadiusProperty, new CornerRadius(10));
+            indicatorFactory.SetValue(Border.BackgroundProperty, accentBrush);
+            indicatorFactory.SetValue(Border.EffectProperty, new DropShadowEffect
+            {
+                BlurRadius = 10,
+                Direction = 0,
+                ShadowDepth = 0,
+                Opacity = 0.55,
+                Color = ((SolidColorBrush)accentBrush).Color
+            });
+            indicatorFactory.SetValue(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Left);
+
+            trackFactory.AppendChild(indicatorFactory);
+            factory.AppendChild(trackFactory);
+            template.VisualTree = factory;
+            return template;
         }
 
         private UIElement BuildMetricWidget(DashboardWidgetViewModel widget)
@@ -1749,107 +1994,223 @@ namespace GUI
             {
                 Text = widget.Title.ToUpperInvariant(),
                 Foreground = new SolidColorBrush(Color.FromRgb(158, 200, 234)),
-                FontSize = 12,
+                FontSize = 11,
                 FontWeight = FontWeights.SemiBold
             });
+
+            // ── Gauge geometry constants ──────────────────────────────
+            const double cx = 86, cy = 84, r = 68;
+            const double startAngle = 205, endAngle = 335;
+            const double zone1End = 248, zone2End = 292; // 33 % and 66 % of 130° arc
+
+            var colGreen  = Color.FromRgb(34,  197, 94);
+            var colYellow = Color.FromRgb(251, 191, 36);
+            var colRed    = Color.FromRgb(239,  68, 68);
 
             var gauge = new Canvas
             {
                 Width = 172,
-                Height = 104,
-                ClipToBounds = true,
+                Height = 110,
+                ClipToBounds = false,
                 HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = new Thickness(0, 6, 0, 0)
+                Margin = new Thickness(0, 2, 0, 0)
             };
 
+            // ── Outer thin ring (decorative) ──────────────────────────
             gauge.Children.Add(new Path
             {
-                Data = CreateArcGeometry(86, 82, 70, 205, 335),
-                Stroke = new SolidColorBrush(Color.FromRgb(26, 42, 62)),
-                StrokeThickness = 12,
+                Data = CreateArcGeometry(cx, cy, r + 5, startAngle, endAngle),
+                Stroke = new SolidColorBrush(Color.FromArgb(28, 255, 255, 255)),
+                StrokeThickness = 1,
                 StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round
+            });
+
+            // ── Background track (dark base) ─────────────────────────
+            gauge.Children.Add(new Path
+            {
+                Data = CreateArcGeometry(cx, cy, r, startAngle, endAngle),
+                Stroke = new SolidColorBrush(Color.FromRgb(18, 30, 46)),
+                StrokeThickness = 16,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round
+            });
+
+            // ── Zone 1 — GREEN (low RPM, safe) ───────────────────────
+            gauge.Children.Add(new Path
+            {
+                Data = CreateArcGeometry(cx, cy, r, startAngle, zone1End),
+                Stroke = new SolidColorBrush(Color.FromArgb(85, colGreen.R, colGreen.G, colGreen.B)),
+                StrokeThickness = 16,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Flat
+            });
+            gauge.Children.Add(new Path
+            {
+                Data = CreateArcGeometry(cx, cy, r, startAngle, zone1End),
+                Stroke = new SolidColorBrush(Color.FromArgb(220, colGreen.R, colGreen.G, colGreen.B)),
+                StrokeThickness = 5,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Flat,
+                Effect = new DropShadowEffect { BlurRadius = 10, Direction = 0, ShadowDepth = 0, Opacity = 0.7, Color = colGreen }
+            });
+
+            // ── Zone 2 — YELLOW (medium RPM, caution) ────────────────
+            gauge.Children.Add(new Path
+            {
+                Data = CreateArcGeometry(cx, cy, r, zone1End, zone2End),
+                Stroke = new SolidColorBrush(Color.FromArgb(85, colYellow.R, colYellow.G, colYellow.B)),
+                StrokeThickness = 16,
+                StrokeStartLineCap = PenLineCap.Flat,
+                StrokeEndLineCap = PenLineCap.Flat
+            });
+            gauge.Children.Add(new Path
+            {
+                Data = CreateArcGeometry(cx, cy, r, zone1End, zone2End),
+                Stroke = new SolidColorBrush(Color.FromArgb(220, colYellow.R, colYellow.G, colYellow.B)),
+                StrokeThickness = 5,
+                StrokeStartLineCap = PenLineCap.Flat,
+                StrokeEndLineCap = PenLineCap.Flat,
+                Effect = new DropShadowEffect { BlurRadius = 10, Direction = 0, ShadowDepth = 0, Opacity = 0.7, Color = colYellow }
+            });
+
+            // ── Zone 3 — RED (high RPM, danger) ──────────────────────
+            gauge.Children.Add(new Path
+            {
+                Data = CreateArcGeometry(cx, cy, r, zone2End, endAngle),
+                Stroke = new SolidColorBrush(Color.FromArgb(85, colRed.R, colRed.G, colRed.B)),
+                StrokeThickness = 16,
+                StrokeStartLineCap = PenLineCap.Flat,
                 StrokeEndLineCap = PenLineCap.Round
             });
             gauge.Children.Add(new Path
             {
-                Data = CreateArcGeometry(86, 82, 70, 205, 335),
-                Stroke = new LinearGradientBrush(Color.FromRgb(34, 211, 238), Color.FromRgb(163, 230, 53), new Point(0, 0), new Point(1, 0)),
+                Data = CreateArcGeometry(cx, cy, r, zone2End, endAngle),
+                Stroke = new SolidColorBrush(Color.FromArgb(220, colRed.R, colRed.G, colRed.B)),
                 StrokeThickness = 5,
-                StrokeStartLineCap = PenLineCap.Round,
+                StrokeStartLineCap = PenLineCap.Flat,
                 StrokeEndLineCap = PenLineCap.Round,
-                Effect = new DropShadowEffect
-                {
-                    BlurRadius = 12,
-                    Direction = 0,
-                    ShadowDepth = 0,
-                    Opacity = 0.42,
-                    Color = Color.FromRgb(163, 230, 53)
-                }
+                Effect = new DropShadowEffect { BlurRadius = 10, Direction = 0, ShadowDepth = 0, Opacity = 0.7, Color = colRed }
             });
 
-            for (var i = 0; i < 9; i++)
+            // ── Tick marks ────────────────────────────────────────────
+            // Major: zone boundaries + endpoints — Minor: every ~13°
+            var majorAngles = new[] { 205.0, 248.0, 292.0, 335.0 };
+            var minorAngles = new[] { 218.0, 231.0, 261.0, 270.0, 279.0, 305.0, 318.0 };
+
+            foreach (var a in majorAngles)
             {
-                var angle = 205 + i * 16;
-                var tick = new Line
+                var rad = a * Math.PI / 180;
+                gauge.Children.Add(new Line
                 {
-                    X1 = 86 + Math.Cos(angle * Math.PI / 180) * 56,
-                    Y1 = 82 + Math.Sin(angle * Math.PI / 180) * 56,
-                    X2 = 86 + Math.Cos(angle * Math.PI / 180) * 66,
-                    Y2 = 82 + Math.Sin(angle * Math.PI / 180) * 66,
-                    Stroke = i >= 6 ? widget.AccentBrush : new SolidColorBrush(Color.FromRgb(69, 88, 115)),
-                    StrokeThickness = 2.6,
+                    X1 = cx + Math.Cos(rad) * (r - 16), Y1 = cy + Math.Sin(rad) * (r - 16),
+                    X2 = cx + Math.Cos(rad) * (r + 1),  Y2 = cy + Math.Sin(rad) * (r + 1),
+                    Stroke = new SolidColorBrush(Color.FromRgb(210, 230, 250)),
+                    StrokeThickness = 2.5,
                     StrokeStartLineCap = PenLineCap.Round,
                     StrokeEndLineCap = PenLineCap.Round
-                };
-                gauge.Children.Add(tick);
+                });
+            }
+            foreach (var a in minorAngles)
+            {
+                var rad = a * Math.PI / 180;
+                gauge.Children.Add(new Line
+                {
+                    X1 = cx + Math.Cos(rad) * (r - 9), Y1 = cy + Math.Sin(rad) * (r - 9),
+                    X2 = cx + Math.Cos(rad) * (r + 1), Y2 = cy + Math.Sin(rad) * (r + 1),
+                    Stroke = new SolidColorBrush(Color.FromRgb(70, 100, 135)),
+                    StrokeThickness = 1.2,
+                    StrokeStartLineCap = PenLineCap.Round,
+                    StrokeEndLineCap = PenLineCap.Round
+                });
             }
 
+            // ── Needle ────────────────────────────────────────────────
             var needle = new Line
             {
-                X1 = 86,
-                Y1 = 82,
-                X2 = 86,
-                Y2 = 35,
-                Stroke = new SolidColorBrush(Color.FromRgb(220, 255, 126)),
-                StrokeThickness = 4.5,
+                X1 = cx, Y1 = cy,
+                X2 = cx, Y2 = cy - 56,
+                Stroke = new SolidColorBrush(Color.FromRgb(34, 197, 94)),
+                StrokeThickness = 3.5,
                 StrokeStartLineCap = PenLineCap.Round,
                 StrokeEndLineCap = PenLineCap.Round,
                 Effect = new DropShadowEffect
                 {
-                    BlurRadius = 10,
+                    BlurRadius = 14,
                     Direction = 0,
                     ShadowDepth = 0,
-                    Opacity = 0.60,
-                    Color = Color.FromRgb(163, 230, 53)
+                    Opacity = 0.90,
+                    Color = Color.FromRgb(34, 197, 94)
                 }
             };
-            needle.RenderTransform = new RotateTransform(-55, 86, 82);
+            needle.RenderTransform = new RotateTransform(-55, cx, cy);
             gauge.Children.Add(needle);
-            gauge.Children.Add(new Ellipse
+
+            // Needle base dot
+            var needleBase = new Ellipse
             {
-                Width = 18,
-                Height = 18,
-                Fill = new SolidColorBrush(Color.FromRgb(15, 23, 34)),
-                Stroke = widget.AccentBrush,
-                StrokeThickness = 3
-            });
-            Canvas.SetLeft(gauge.Children[gauge.Children.Count - 1], 77);
-            Canvas.SetTop(gauge.Children[gauge.Children.Count - 1], 73);
+                Width = 12, Height = 12,
+                Fill = new SolidColorBrush(Color.FromRgb(18, 28, 44)),
+                Stroke = new SolidColorBrush(Color.FromRgb(100, 160, 220)),
+                StrokeThickness = 2,
+                Effect = new DropShadowEffect { BlurRadius = 8, Direction = 0, ShadowDepth = 0, Opacity = 0.6, Color = Color.FromRgb(79, 163, 255) }
+            };
+            Canvas.SetLeft(needleBase, cx - 6);
+            Canvas.SetTop(needleBase, cy - 6);
+            gauge.Children.Add(needleBase);
+
+            // ── Zone labels ───────────────────────────────────────────
+            void PlaceLabel(string text, double angle, SolidColorBrush brush)
+            {
+                var rad = angle * Math.PI / 180;
+                var lx = cx + Math.Cos(rad) * (r - 28);
+                var ly = cy + Math.Sin(rad) * (r - 28);
+                var lbl = new TextBlock
+                {
+                    Text = text, FontSize = 9.5, FontWeight = FontWeights.Bold,
+                    Foreground = brush, HorizontalAlignment = HorizontalAlignment.Center
+                };
+                lbl.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                Canvas.SetLeft(lbl, lx - lbl.DesiredSize.Width / 2);
+                Canvas.SetTop(lbl, ly - lbl.DesiredSize.Height / 2);
+                gauge.Children.Add(lbl);
+            }
+            PlaceLabel("0",    220, new SolidColorBrush(colGreen));
+            PlaceLabel("MAX",  320, new SolidColorBrush(colRed));
 
             Grid.SetRow(gauge, 1);
             root.Children.Add(gauge);
 
+            // ── Value display ─────────────────────────────────────────
+            var valuePanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, -2, 0, 0)
+            };
             var value = new TextBlock
             {
                 Text = widget.ValueText,
-                FontSize = 27,
+                FontSize = 26,
                 FontFamily = new FontFamily("Consolas"),
                 FontWeight = FontWeights.Bold,
-                Foreground = Brushes.White,
-                HorizontalAlignment = HorizontalAlignment.Center
+                Foreground = new SolidColorBrush(colGreen)
             };
-            Grid.SetRow(value, 2);
-            root.Children.Add(value);
+            valuePanel.Children.Add(value);
+            if (!string.IsNullOrWhiteSpace(widget.Unit))
+            {
+                valuePanel.Children.Add(new TextBlock
+                {
+                    Text = " " + widget.Unit,
+                    Foreground = new SolidColorBrush(Color.FromRgb(140, 175, 210)),
+                    FontSize = 13,
+                    VerticalAlignment = VerticalAlignment.Bottom,
+                    Margin = new Thickness(2, 0, 0, 4),
+                    FontWeight = FontWeights.SemiBold
+                });
+            }
+            Grid.SetRow(valuePanel, 2);
+            root.Children.Add(valuePanel);
 
             widget.ValueBlock = value;
             widget.Needle = needle;
@@ -2418,12 +2779,36 @@ namespace GUI
 
                 if (widget.Needle != null)
                 {
-                    var max = EndsWithTag(widget.Tag, ".RPM") ? 2000 : 100;
-                    var angle = -55 + Math.Max(0, Math.Min(1, number / max)) * 110;
+                    var max = EndsWithTag(widget.Tag, ".RPM") ? 3000
+                        : EndsWithTag(widget.Tag, ".Presion") ? 120
+                        : EndsWithTag(widget.Tag, ".Temperatura") ? 120
+                        : EndsWithTag(widget.Tag, ".Vibracion") ? 6
+                        : EndsWithTag(widget.Tag, ".Corriente") ? 35
+                        : 100;
+                    var fraction = Math.Max(0, Math.Min(1, number / max));
+                    var angle = -55 + fraction * 110;
+
+                    // Dynamic needle colour — green / yellow / red by zone
+                    var needleColor = fraction < 0.333
+                        ? Color.FromRgb(34, 197, 94)
+                        : fraction < 0.667
+                            ? Color.FromRgb(251, 191, 36)
+                            : Color.FromRgb(239, 68, 68);
+
+                    widget.Needle.Stroke = new SolidColorBrush(needleColor);
+                    var needleGlow = widget.Needle.Effect as DropShadowEffect;
+                    if (needleGlow != null) needleGlow.Color = needleColor;
+
+                    // Also tint the value text to match zone
+                    if (widget.ValueBlock != null)
+                    {
+                        widget.ValueBlock.Foreground = new SolidColorBrush(needleColor);
+                    }
+
                     var rotate = widget.Needle.RenderTransform as RotateTransform;
                     if (rotate == null)
                     {
-                        rotate = new RotateTransform(widget.GaugeAngle, 86, 82);
+                        rotate = new RotateTransform(widget.GaugeAngle, 86, 84);
                         widget.Needle.RenderTransform = rotate;
                     }
 
@@ -2489,7 +2874,7 @@ namespace GUI
 
                 if (widget.Needle != null)
                 {
-                    widget.Needle.RenderTransform = new RotateTransform(-55, 86, 82);
+                    widget.Needle.RenderTransform = new RotateTransform(-55, 86, 84);
                     widget.GaugeAngle = -55;
                 }
 
@@ -2949,6 +3334,7 @@ namespace GUI
             if (EndsWithTag(tag, ".Potencia")) return "kW";
             if (EndsWithTag(tag, ".Consumo")) return "kWh";
             if (EndsWithTag(tag, ".Torque")) return "Nm";
+            if (EndsWithTag(tag, ".HorasOp")) return "h";
             return string.Empty;
         }
 
@@ -2964,15 +3350,18 @@ namespace GUI
             if (EndsWithTag(tag, ".Eficiencia")) return "EF";
             if (EndsWithTag(tag, ".Torque")) return "Nm";
             if (EndsWithTag(tag, ".Estado")) return "ON";
+            if (EndsWithTag(tag, ".HorasOp")) return "h";
             return "#";
         }
 
-        private static Color AccentFor(string tag, TipoWidget type) //Esta funci�n asigna colores espec�ficos a los widgets seg�n el tipo de dato que representan,
-                                                                    //para mejorar la visualizaci�n y diferenciaci�n de los mismos en el dashboard. Por ejemplo,
+        private static Color AccentFor(string tag, TipoWidget type) //Esta funci�n asigna colores espec�ficos a los widgets seg�n el tipo de dato que representan,
+                                                                    //para mejorar la visualizaci�n y diferenciaci�n de los mismos en el dashboard. Por ejemplo,
                                                                     //las RPM se muestran en verde, la temperatura en naranja,
                                                                     //la corriente en azul, etc. El panel de alarmas tiene un color distintivo para resaltar su importancia.
         {
             if (type == TipoWidget.PanelAlarmas) return Color.FromRgb(56, 189, 248);
+            if (type == TipoWidget.BarraProgreso && EndsWithTag(tag, ".Eficiencia")) return Color.FromRgb(34, 197, 94);
+            if (type == TipoWidget.BarraProgreso) return Color.FromRgb(79, 163, 255);
             if (EndsWithTag(tag, ".RPM")) return Color.FromRgb(163, 230, 53);
             if (EndsWithTag(tag, ".Temperatura")) return Color.FromRgb(249, 115, 22);
             if (EndsWithTag(tag, ".Corriente")) return Color.FromRgb(56, 189, 248);
@@ -2980,6 +3369,10 @@ namespace GUI
             if (EndsWithTag(tag, ".Voltaje")) return Color.FromRgb(249, 115, 22);
             if (EndsWithTag(tag, ".Nivel")) return Color.FromRgb(34, 211, 238);
             if (EndsWithTag(tag, ".Estado")) return Color.FromRgb(16, 185, 129);
+            if (EndsWithTag(tag, ".Eficiencia")) return Color.FromRgb(34, 197, 94);
+            if (EndsWithTag(tag, ".Torque")) return Color.FromRgb(251, 191, 36);
+            if (EndsWithTag(tag, ".Presion")) return Color.FromRgb(167, 139, 250);
+            if (EndsWithTag(tag, ".HorasOp")) return Color.FromRgb(100, 149, 237);
             return Color.FromRgb(251, 191, 36);
         }
 
@@ -3113,6 +3506,8 @@ namespace GUI
                     return new[] { ".RPM", ".Temperatura", ".Vibracion", ".Corriente" };
                 case TipoWidget.PanelAlarmas:
                     return new[] { ".Alarma" };
+                case TipoWidget.BarraProgreso:
+                    return new[] { ".Eficiencia", ".Nivel", ".Presion" };
                 case TipoWidget.Numerico:
                     return new[] { ".Temperatura", ".Vibracion", ".Corriente", ".Voltaje", ".RPM" };
                 case TipoWidget.Motor:
@@ -3166,6 +3561,8 @@ namespace GUI
                     return motorId + ".Alarma";
                 case TipoWidget.Motor:
                     return motorId + ".RPM";
+                case TipoWidget.BarraProgreso:
+                    return motorId + ".Eficiencia";
                 default:
                     return motorId + ".RPM";
             }
@@ -3187,6 +3584,8 @@ namespace GUI
                     return "Motor";
                 case TipoWidget.Numerico:
                     return "Valor numerico";
+                case TipoWidget.BarraProgreso:
+                    return "Barra de progreso";
                 default:
                     return "Gauge";
             }
@@ -3372,20 +3771,15 @@ namespace GUI
             get
             {
                 if (StateText == "Falla")
-                {
                     return new SolidColorBrush(Color.FromRgb(255, 106, 106));
-                }
-
                 if (StateText == "Advertencia")
-                {
                     return new SolidColorBrush(Color.FromRgb(255, 204, 102));
-                }
-
-                if (StateText == "EnMarcha")
-                {
+                if (StateText == "EnMarcha" || StateText == "activo")
                     return new SolidColorBrush(Color.FromRgb(40, 199, 164));
-                }
-
+                if (StateText == "Apagado" || StateText == "detenido")
+                    return new SolidColorBrush(Color.FromRgb(239, 68, 68));
+                if (StateText == "Arrancando")
+                    return new SolidColorBrush(Color.FromRgb(249, 115, 22));
                 return new SolidColorBrush(Color.FromRgb(143, 160, 179));
             }
         }

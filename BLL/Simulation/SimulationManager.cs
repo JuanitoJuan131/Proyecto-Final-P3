@@ -26,6 +26,7 @@ namespace BLL.Simulation
             Engine.Dispatcher.TagUpdated += OnSimulatorTagUpdated;
             _mqtt.MessageReceived += OnMqttMessageReceived;
             _mqtt.ConnectionChanged += (connected, message) => MqttConnectionChanged?.Invoke(connected, message);
+            _mqtt.SubscriptionResult += message => PersistenceWarning?.Invoke("[MQTT] " + message);
             _persistence.PersistenceWarning += message => PersistenceWarning?.Invoke(message);
         }
 
@@ -97,6 +98,50 @@ namespace BLL.Simulation
         {
             UseMqttTelemetry(false);
             await _mqtt.DisconnectAsync();
+        }
+
+        public async Task PublishCommandAsync(string motorId, string accion)
+        {
+            if (!_mqtt.IsConnected || string.IsNullOrWhiteSpace(motorId) || string.IsNullOrWhiteSpace(accion))
+                return;
+
+            var topic = "visualiot/" + motorId + "/comandos";
+            var payload = "{\"accion\":\"" + accion + "\"}";
+            await _mqtt.PublishAsync(topic, payload);
+            Trace.TraceInformation("Command sent to {0}: {1}", topic, payload);
+        }
+
+        /// <summary>
+        /// Publica un payload JSON con valores variables que simulan exactamente lo que
+        /// el ESP32 enviaría. Úsalo para verificar el pipeline o como modo demo.
+        /// </summary>
+        public async Task PublishSimulatedEsp32Async(string motorId)
+        {
+            motorId = string.IsNullOrWhiteSpace(motorId) ? "MOTOR_01" : motorId;
+            var topic = "visualiot/" + motorId + "/datos";
+
+            // Valores que varían con el tiempo para que el gauge y tendencia se animen
+            var t = (DateTime.Now - DateTime.Today).TotalSeconds;
+            var rpm      = (int)(1500 + Math.Sin(t / 8.0) * 900);            // 600–2400
+            var temp     = Math.Round(52 + Math.Sin(t / 12.0) * 22, 1);      // 30–74 °C
+            var corriente = Math.Round((rpm / 3000.0) * 30 + (Math.Sin(t / 3.0) * 1.5), 1);
+            var voltaje   = Math.Round(380 + Math.Sin(t / 5.0) * 2, 1);
+            var vibracion = Math.Round(0.5 + (rpm / 3000.0) * 4 + Math.Sin(t / 2.0) * 0.3, 2);
+            var presion   = Math.Round(40 + (rpm / 3000.0) * 75, 1);
+            var torque    = Math.Round(20 + (rpm / 3000.0) * 55, 1);
+            var nivel     = Math.Round(55 + Math.Sin(t / 15.0) * 18, 1);
+            var eficiencia = Math.Round(Math.Max(60, 100 - (temp - 25) * 0.4), 1);
+            var horasOp   = (int)(t / 3600);
+
+            var payload = string.Format(
+                CultureInfo.InvariantCulture,
+                "{{\"rpm\":{0},\"temperatura\":{1},\"corriente\":{2},\"voltaje\":{3},"
+                + "\"vibracion\":{4},\"presion\":{5},\"torque\":{6},\"nivel\":{7},"
+                + "\"eficiencia\":{8},\"estado\":\"activo\",\"horas_op\":{9}}}",
+                rpm, temp, corriente, voltaje, vibracion, presion, torque, nivel, eficiencia, horasOp);
+
+            await _mqtt.PublishAsync(topic, payload);
+            Trace.TraceInformation("Simulated ESP32 payload -> {0}: {1}", topic, payload);
         }
 
         public void ShutdownMotor(string motorId)
@@ -202,8 +247,17 @@ namespace BLL.Simulation
 
                 if (string.IsNullOrWhiteSpace(device))
                 {
-                    Trace.TraceWarning("MQTT JSON message ignored without device: {0}", payload);
-                    return true;
+                    Trace.TraceWarning("MQTT JSON message ignored without device. Topic: {0} Payload: {1}", topic, payload);
+                    // Fallback: try MOTOR_01 if topic contains known namespace
+                    if (topic.StartsWith("visualiot/", StringComparison.OrdinalIgnoreCase))
+                    {
+                        device = "MOTOR_01";
+                        Trace.TraceInformation("MQTT: defaulting device to MOTOR_01 for visualiot topic");
+                    }
+                    else
+                    {
+                        return true;
+                    }
                 }
 
                 device = NormalizeDeviceId(device);
@@ -220,6 +274,7 @@ namespace BLL.Simulation
                 UpdateMappedTag(device, "Consumo", GetFirst(values, "consumo", "energy"));
                 UpdateMappedTag(device, "Torque", GetFirst(values, "torque"));
                 UpdateMappedTag(device, "Estado", NormalizeState(GetFirst(values, "estado", "state")));
+                UpdateMappedTag(device, "HorasOp", GetFirst(values, "horas_op", "horasOp", "hours"));
                 UpdateMappedTag(device, "Alarma", ResolveAlarmText(values));
                 return true;
             }
@@ -289,6 +344,9 @@ namespace BLL.Simulation
             if (string.Equals(state, "RUNNING", StringComparison.OrdinalIgnoreCase)) return "EnMarcha";
             if (string.Equals(state, "WARNING", StringComparison.OrdinalIgnoreCase)) return "Advertencia";
             if (string.Equals(state, "FAULT", StringComparison.OrdinalIgnoreCase)) return "Falla";
+            if (string.Equals(state, "activo", StringComparison.OrdinalIgnoreCase)) return "EnMarcha";
+            if (string.Equals(state, "detenido", StringComparison.OrdinalIgnoreCase)) return "Apagado";
+            if (string.Equals(state, "apagado", StringComparison.OrdinalIgnoreCase)) return "Apagado";
             return value;
         }
 
@@ -322,23 +380,19 @@ namespace BLL.Simulation
             var parts = string.IsNullOrWhiteSpace(topic)
                 ? new string[0]
                 : topic.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+
+            // Scan all segments for motor/tanque identifiers (e.g. visualiot/MOTOR_01/datos)
+            foreach (var part in parts)
+            {
+                var compact = part.Replace("_", string.Empty).Replace("-", string.Empty).ToLowerInvariant();
+                if (compact.StartsWith("motor") && compact.Length > 5)
+                    return NormalizeDeviceId(part);
+                if (compact.StartsWith("tanque") && compact.Length > 6)
+                    return NormalizeDeviceId(part);
+            }
+
             var last = parts.LastOrDefault();
-            if (string.IsNullOrWhiteSpace(last))
-            {
-                return string.Empty;
-            }
-
-            if (last.StartsWith("motor", StringComparison.OrdinalIgnoreCase))
-            {
-                return "MOTOR_" + last.Substring(5).PadLeft(2, '0');
-            }
-
-            if (last.StartsWith("tanque", StringComparison.OrdinalIgnoreCase))
-            {
-                return "TANQUE_" + last.Substring(6).PadLeft(2, '0');
-            }
-
-            return NormalizeDeviceId(last);
+            return string.IsNullOrWhiteSpace(last) ? string.Empty : NormalizeDeviceId(last);
         }
 
         private static string NormalizeDeviceId(string device)
@@ -427,6 +481,7 @@ namespace BLL.Simulation
             if (key == "torque") return "Torque";
             if (key == "estado" || key == "state") return "Estado";
             if (key == "alarma" || key == "alarm") return "Alarma";
+            if (key == "horasop" || key == "horasoperacion" || key == "hours" || key == "horas") return "HorasOp";
             return CultureInfo.InvariantCulture.TextInfo.ToTitleCase(metric.ToLowerInvariant());
         }
 
